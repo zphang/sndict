@@ -38,6 +38,12 @@ dict_b = col.OrderedDict([
 empty_dict = dict()
 
 
+def test_dim():
+    assert XDict(dict_a).dim == (3, 5)
+    assert XDict(dict_b).dim == (3, 3, 5)
+    assert XDict(empty_dict).dim == (0,)
+
+
 def test_levels():
     assert XDict({0: 1}).levels == 1
     assert XDict({0: {1: 2}}).levels == 2
@@ -133,12 +139,33 @@ def test_empty_sub_dict_is_dropped():
     assert "key3" not in XDict(dict_b).flatten().stratify()
 
 
-def test_chain_ix():
-    assert XDict(dict_b).chain_ix(["key1"]).levels == 2
-    assert XDict(dict_b).chain_ix(["key1", "key1_1", "key1_1_1"]) == "val1_1_1"
-
-
 def test_filter():
     assert XDict(dict_b).filter_key(["key1"]).flat_len == 2
     assert XDict(dict_b).filter_key(["key1", "key2"]).flat_len == 5
     assert XDict(dict_b).filter_key(lambda _: "key" in _).flat_len == 5
+
+
+def test_subset():
+    subset_dict = XDict(dict_b).subset(["key2", "key1"])
+    assert len(subset_dict) == 2
+    assert subset_dict.keys()[0] == "key2"
+    assert subset_dict.keys()[1] == "key1"
+
+
+def test_get_chain():
+    assert XDict(dict_b).get_chain(["key1"]).levels == 2
+    assert XDict(dict_b).get_chain(["key1", "key1_1", "key1_1_1"]) == "val1_1_1"
+    assert XDict(dict_b).get_chain(["key100"], 1234) == 1234
+    assert_raises(KeyError, XDict(dict_b).get_chain, ["key100"])
+
+
+def test_set_chain():
+    sample_dict = XDict(dict_b)
+    assert_raises(LevelError, sample_dict.set_chain, range(10), "val")
+    sample_dict.set_chain(range(3), "val")
+    assert sample_dict[0][1][2] == "val"
+
+    sample_dict = XDict(dict_b)
+    new_dict = sample_dict.set_chain(range(3), "val", inplace=False)
+    assert sample_dict.flat_len == 5
+    assert new_dict.flat_len == 6

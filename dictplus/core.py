@@ -5,27 +5,46 @@ from utils import replace_none
 from exceptions import LevelError
 
 
+class _NothingClass(object):
+    pass
+
+_NOTHING = _NothingClass()
+
+
 class XDict(col.OrderedDict):
     def __init__(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
-        self._levels = None
+        self._dim = None
+
+    @property
+    def dim(self):
+        if self._dim is None:
+            dimension_dict = {0: 0}
+
+            def _dfs(obj, depth):
+                dimension_dict[depth] += 1
+                if isinstance(obj, dict):
+                    if depth + 1 not in dimension_dict:
+                        dimension_dict[depth + 1] = 0
+                    for _, val in obj.iteritems():
+                        _dfs(val, depth + 1)
+
+            _dfs(self, 0)
+
+            self._dim = tuple([
+                dimension_dict[level]
+                for level in range(1, len(dimension_dict))
+            ])
+
+        return self._dim
 
     @property
     def levels(self):
-        if self._levels is None:
-            current = self
-            levels = 0
-            while isinstance(current, dict):
-                levels += 1
-                if not current:
-                    break
-                current = current.values()[0]
-            self._levels = levels
-        return self._levels
+        return len(self.dim)
 
     @property
     def flat_len(self):
-        return len(self.flatten())
+        return self.dim[-1]
 
     def deepcopy(self):
         def _recursive_copy(dictionary):
@@ -114,6 +133,12 @@ class XDict(col.OrderedDict):
             level=level-1,
         )
 
+    def key_map(self, key_func, level=0):
+        return self._generic_map(key_func=key_func, level=level)
+
+    def val_map(self, val_func, level=0):
+        return self._generic_map(val_func=val_func, level=level)
+
     def _generic_map(self, key_func=None, val_func=None, level=0):
         # 0-indexed
         level = _wrap_negative_level(level, total_levels=self.levels)
@@ -144,23 +169,6 @@ class XDict(col.OrderedDict):
         assert len(new_dict) == len(self)
         return new_dict
 
-    def key_map(self, key_func, level=0):
-        return self._generic_map(key_func=key_func, level=level)
-
-    def val_map(self, val_func, level=0):
-        return self._generic_map(val_func=val_func, level=level)
-
-    def chain_ix(self, key_ls):
-        curr_pointer = self
-        for key in key_ls:
-            curr_pointer = curr_pointer[key]
-
-        # TYPEHACK
-        if isinstance(curr_pointer, dict):
-            curr_pointer = self.__class__(curr_pointer)
-
-        return curr_pointer
-
     """
     def chain_ix_at(self, key_ls, level=0):
         if level == 0:
@@ -170,6 +178,12 @@ class XDict(col.OrderedDict):
             level=level-1,
         )
     """
+
+    def filter_key(self, key_filter, filter_in=True):
+        return self._generic_filter(key_filter=key_filter, filter_in=filter_in)
+
+    def filter_val(self, val_filter, filter_in=True):
+        return self._generic_filter(val_filter=val_filter, filter_in=filter_in)
 
     def _generic_filter(self, key_filter=None, val_filter=None, filter_in=True):
 
@@ -197,11 +211,60 @@ class XDict(col.OrderedDict):
             if key_filter_func(key) and val_filter_func(val)
         ])
 
-    def filter_key(self, key_filter, filter_in=True):
-        return self._generic_filter(key_filter=key_filter, filter_in=filter_in)
+    def subset(self, key_ls):
+        return self.__class__([
+            (key, self[key])
+            for key in key_ls
+        ])
 
-    def filter_val(self, val_filter, filter_in=True):
-        return self._generic_filter(val_filter=val_filter, filter_in=filter_in)
+    def set_chain(self, key_ls, val, inplace=True):
+
+        if not inplace:
+            new_dict = self.deepcopy()
+            new_dict.set_chain(key_ls=key_ls, val=val, inplace=True)
+            return new_dict
+
+        if isinstance(val, dict):
+            if not len(key_ls) + XDict(val).levels == self.levels:
+                raise LevelError(
+                    "key_ls depth + val depth ({}, {}) does not match levels "
+                    "({})".format(len(key_ls), XDict(val).levels, self.levels))
+        else:
+            if not len(key_ls) == self.levels:
+                raise LevelError("key_ls depth ({}) does not match levels "
+                                 "({})".format(len(key_ls), self.levels))
+
+        pointer = self
+        for key in key_ls[:-1]:
+            if key not in pointer:
+                pointer[key] = self.__class__()
+            pointer = pointer[key]
+
+        if key_ls[-1] not in pointer:
+            new_dim = list(self._dim)
+            new_dim[len(key_ls) - 1] += 1
+            self._dim = new_dim
+
+        pointer[key_ls[-1]] = val
+
+    def get_chain(self, key_ls, default=_NOTHING):
+        if not key_ls:
+            raise LevelError("Cannot get_chain with empty key_ls")
+
+        pointer = self
+        try:
+            for key in key_ls:
+                pointer = pointer[key]
+
+            # TYPEHACK
+            if isinstance(pointer, dict):
+                pointer = self.__class__(pointer)
+            return pointer
+        except KeyError:
+            if isinstance(default, _NothingClass):
+                raise KeyError(key_ls)
+            else:
+                return default
 
 
 def identity(x):
@@ -215,4 +278,3 @@ def _wrap_negative_level(level, total_levels):
         wrapped_level = total_levels + level
         assert wrapped_level >= 0
         return wrapped_level
-
