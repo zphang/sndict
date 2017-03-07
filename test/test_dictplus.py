@@ -49,6 +49,10 @@ def test_levels():
     assert XDict(empty_dict).levels == 1
 
 
+def test_flat_len():
+    assert XDict(dict_b).flat_len == 5
+
+
 def test_flatten():
     assert XDict(dict_a).flatten(1) == XDict(dict_a).flatten()
     flattened_dict_a = XDict(dict_a).flatten(1)
@@ -95,6 +99,15 @@ def test_stratify():
         "val1_1_1"
 
 
+def test_flatten_at():
+    assert XDict(dict_b).flatten_at(1).keys()[0] == "key1"
+    assert XDict(dict_b).flatten_at(1).values()[0].keys()[0] == ("key1_1", "key1_1_1")
+
+
+def test_stratify_at():
+    assert XDict(dict_b).flatten_at(1).stratify_at(1).levels == 3
+
+
 def test_bad_stratify():
     flattened_dict_b = XDict(dict_a).flatten()
     assert_raises(LevelError, flattened_dict_b.stratify, 3)
@@ -113,3 +126,19 @@ def test_val_map():
         .values()[0].keys()[0] == "key1_1"
     assert XDict(dict_b).val_map(len, level=1)\
         .values()[0].values()[0] == 2
+
+
+def test_empty_sub_dict_is_dropped():
+    assert "key3" in XDict(dict_b)
+    assert "key3" not in XDict(dict_b).flatten().stratify()
+
+
+def test_chain_ix():
+    assert XDict(dict_b).chain_ix(["key1"]).levels == 2
+    assert XDict(dict_b).chain_ix(["key1", "key1_1", "key1_1_1"]) == "val1_1_1"
+
+
+def test_filter():
+    assert XDict(dict_b).filter_key(["key1"]).flat_len == 2
+    assert XDict(dict_b).filter_key(["key1", "key2"]).flat_len == 5
+    assert XDict(dict_b).filter_key(lambda _: "key" in _).flat_len == 5

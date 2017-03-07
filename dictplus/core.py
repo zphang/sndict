@@ -1,4 +1,6 @@
 import collections as col
+import types
+
 from utils import replace_none
 from exceptions import LevelError
 
@@ -21,6 +23,10 @@ class XDict(col.OrderedDict):
             self._levels = levels
         return self._levels
 
+    @property
+    def flat_len(self):
+        return len(self.flatten())
+
     def deepcopy(self):
         def _recursive_copy(dictionary):
             return dictionary.__class__([
@@ -32,7 +38,7 @@ class XDict(col.OrderedDict):
 
     def flatten(self, levels=None):
         levels = replace_none(levels, self.levels-1)
-        levels = _wrap_negative_level(levels, tota  l_levels=self.levels)
+        levels = _wrap_negative_level(levels, total_levels=self.levels)
         if levels >= self.levels:
             raise LevelError(
                 "Trying to flatten too many levels ({}) in a {}-level "
@@ -144,11 +150,58 @@ class XDict(col.OrderedDict):
     def val_map(self, val_func, level=0):
         return self._generic_map(val_func=val_func, level=level)
 
-    def ix(self, key_ls):
-        if len(key_ls) == self.levels:
-            dict_to_index = self
-        else:
-            dict_to_index = self.flatten(levels)
+    def chain_ix(self, key_ls):
+        curr_pointer = self
+        for key in key_ls:
+            curr_pointer = curr_pointer[key]
+
+        # TYPEHACK
+        if isinstance(curr_pointer, dict):
+            curr_pointer = self.__class__(curr_pointer)
+
+        return curr_pointer
+
+    """
+    def chain_ix_at(self, key_ls, level=0):
+        if level == 0:
+            return self.chain_ix(key_ls)
+        return self.val_map(
+            lambda inner_dict: self.__class__(inner_dict).chain_ix_at(key_ls),
+            level=level-1,
+        )
+    """
+
+    def _generic_filter(self, key_filter=None, val_filter=None, filter_in=True):
+
+        def _get_filter_func(val_or_ls_or_lambda):
+            if val_or_ls_or_lambda is None:
+                filter_func = lambda x: True
+            elif isinstance(val_or_ls_or_lambda, types.FunctionType):
+                filter_func = val_or_ls_or_lambda
+            elif isinstance(val_or_ls_or_lambda, list):
+                filter_func = lambda x: x in val_or_ls_or_lambda
+            else:
+                filter_func = lambda x: x == val_or_ls_or_lambda
+
+            if not filter_in:
+                filter_func = lambda x: not x
+
+            return filter_func
+
+        key_filter_func = _get_filter_func(key_filter)
+        val_filter_func = _get_filter_func(val_filter)
+
+        return self.__class__([
+            (key, val)
+            for key, val in self.iteritems()
+            if key_filter_func(key) and val_filter_func(val)
+        ])
+
+    def filter_key(self, key_filter, filter_in=True):
+        return self._generic_filter(key_filter=key_filter, filter_in=filter_in)
+
+    def filter_val(self, val_filter, filter_in=True):
+        return self._generic_filter(val_filter=val_filter, filter_in=filter_in)
 
 
 def identity(x):
