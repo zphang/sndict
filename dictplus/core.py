@@ -1,11 +1,12 @@
 import collections as col
 import types
 
-from utils import replace_none
+from utils import replace_none, identity
 from exceptions import LevelError
 
 
 class _NothingClass(object):
+    """Non-informative class for expressing "default" values, that isn't None"""
     pass
 
 _NOTHING = _NothingClass()
@@ -14,22 +15,39 @@ _NOTHING = _NothingClass()
 class XDict(col.OrderedDict):
     def __init__(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
-        self._dim = None
+
+        if args and isinstance(args[0], XDict) and not args[0]._dim is None:
+            self._dim = args[0]._dim
+        else:
+            self._dim = None
 
     @property
     def dim(self):
+        """The dimensions of the XDict, express as a tuple of the widths of each
+        level.
+
+        Because this is a relatively heavy operation, we want to aggressively
+        cache this.
+
+        Returns
+        -------
+        tuple
+        """
         if self._dim is None:
-            dimension_dict = {0: 0}
+            dimension_dict = col.defaultdict(lambda: 0)
 
             def _dfs(obj, depth):
                 dimension_dict[depth] += 1
-                if isinstance(obj, dict):
+                if depth > 1 and isinstance(obj, XDict):
+                    for obj_depth, obj_width in enumerate(obj.dim, start=depth+1):
+                        dimension_dict[obj_depth] += obj_width
+                elif isinstance(obj, dict):
                     if depth + 1 not in dimension_dict:
                         dimension_dict[depth + 1] = 0
                     for _, val in obj.iteritems():
                         _dfs(val, depth + 1)
 
-            _dfs(self, 0)
+            _dfs(self, depth=0)
 
             self._dim = tuple([
                 dimension_dict[level]
@@ -40,13 +58,32 @@ class XDict(col.OrderedDict):
 
     @property
     def levels(self):
+        """Number of levels (depth) of the XDict
+
+        Returns
+        -------
+        int
+        """
         return len(self.dim)
 
     @property
     def flat_len(self):
+        """Width of lowest (deepest) level of XDict
+
+        Returns
+        -------
+        int
+        """
         return self.dim[-1]
 
     def deepcopy(self):
+        """Recursively copy XDict and nested dictionaries. Note that this does
+        not deepcopy non-dict objects
+
+        Returns
+        -------
+        XDict
+        """
         def _recursive_copy(dictionary):
             return dictionary.__class__([
                 (key, _recursive_copy(val) if isinstance(val, dict) else val)
@@ -56,8 +93,26 @@ class XDict(col.OrderedDict):
         return _recursive_copy(self)
 
     def flatten(self, levels=None):
+        """Flatten an XDict a number of levels, starting from the top
+
+        WARNING: Flattening will lose information about empty dicts that aren't
+        at the lowest level. This is because empty dicts will not be represented
+        in the resultant flattened dict
+
+        Parameters
+        ----------
+        levels: int, optional
+            Number of levels to flatten by. If not supplied, all levels are
+            flattened (i.e. flattened to a 1-layer deep dict)
+
+        Returns
+        -------
+        XDict:
+            Flattened XDict, with fewer or equal number of levels
+        """
+
         levels = replace_none(levels, self.levels-1)
-        levels = _wrap_negative_level(levels, total_levels=self.levels)
+        levels = self._wrap_negative_level(levels)
         if levels >= self.levels:
             raise LevelError(
                 "Trying to flatten too many levels ({}) in a {}-level "
@@ -88,7 +143,24 @@ class XDict(col.OrderedDict):
         return self.__class__(new_dict_as_list)
 
     def stratify(self, levels=None):
-        if levels == 0:
+        """Nest dictionaries by breaking up top-level key-tuples into levels
+        E.g. Going from
+            {(1, 2, 3): 4}
+        To
+            {1: {2: {3:, 4}}
+
+        Parameters
+        ----------
+        levels: int, optional
+            Number of levels to stratify XDict by. If not supplied, levels
+            is inferred from top-level tuple.
+
+        Returns
+        -------
+        XDict
+            Stratified XDict, with greater or equal number of levels
+        """
+        if levels == 0 or len(self) == 0:
             return self.copy()
 
         if not self:
@@ -118,6 +190,20 @@ class XDict(col.OrderedDict):
         return new_dict
 
     def flatten_at(self, level, levels=None):
+        """Flatten at a given level
+
+        Parameters
+        ----------
+        level: int
+            Level to apply flatten at
+        levels: int, optional.
+            Number of levels of flatten. See: XDict.flatten
+
+        Returns
+        -------
+        XDict
+            XDict flattened at some level
+        """
         if level == 0:
             return self.flatten(levels)
         return self.val_map(
@@ -126,6 +212,20 @@ class XDict(col.OrderedDict):
         )
 
     def stratify_at(self, level, levels=None):
+        """Stratify at a given level
+
+        Parameters
+        ----------
+        level: int
+            Level to apply stratify at
+        levels: int, optional.
+            Number of levels of stratify. See: XDict.stratify
+
+        Returns
+        -------
+        XDict
+            XDict stratified at some level
+        """
         if level == 0:
             return self.stratify(levels)
         return self.val_map(
@@ -134,14 +234,60 @@ class XDict(col.OrderedDict):
         )
 
     def key_map(self, key_func, level=0):
+        """Transform keys of XDict. Resultant keys must be unique within the
+        same dictionary
+
+        Parameters
+        ----------
+        key_func: callable
+            Function to apply to keys
+        level: int, optional
+            Level at which to apply key-transformations to.
+
+        Returns
+        -------
+        XDict:
+            XDict with transformed keys
+        """
         return self._generic_map(key_func=key_func, level=level)
 
     def val_map(self, val_func, level=0):
+        """Transform values of XDict.
+
+        Parameters
+        ----------
+        val_func: callable
+            Function to apply to values
+        level: int, optional
+            Level at which to apply value-transformations to.
+
+        Returns
+        -------
+        XDict:
+            XDict with transformed keys
+        """
         return self._generic_map(val_func=val_func, level=level)
 
     def _generic_map(self, key_func=None, val_func=None, level=0):
+        """Generic method for simultaneously applying key- and value-
+        transformations at a given level
+
+        Parameters
+        ----------
+        key_func: callable
+            Function to apply to keys
+        val_func: callable
+            Function to apply to values
+        level: int, optional
+            Level at which to apply transformations to.
+
+        Returns
+        -------
+        XDict:
+            XDict with transformed keys/values
+        """
         # 0-indexed
-        level = _wrap_negative_level(level, total_levels=self.levels)
+        level = self._wrap_negative_level(level)
         key_func = replace_none(key_func, identity)
         val_func = replace_none(val_func, identity)
         assert level < self.levels
@@ -159,6 +305,21 @@ class XDict(col.OrderedDict):
                 .stratify(level-1)
 
     def _simple_generic_map(self, key_func=None, val_func=None):
+        """Generic method for simultaneously applying key- and value-
+        transformations for a simple dict.
+
+        Parameters
+        ----------
+        key_func: callable
+            Function to apply to keys
+        val_func: callable
+            Function to apply to values
+
+        Returns
+        -------
+        XDict:
+            XDict with tranfsormed keys/values
+        """
         # 0-indexed
         key_func = replace_none(key_func, identity)
         val_func = replace_none(val_func, identity)
@@ -168,16 +329,6 @@ class XDict(col.OrderedDict):
         ])
         assert len(new_dict) == len(self)
         return new_dict
-
-    """
-    def chain_ix_at(self, key_ls, level=0):
-        if level == 0:
-            return self.chain_ix(key_ls)
-        return self.val_map(
-            lambda inner_dict: self.__class__(inner_dict).chain_ix_at(key_ls),
-            level=level-1,
-        )
-    """
 
     def filter_key(self, key_filter, filter_in=True):
         return self._generic_filter(key_filter=key_filter, filter_in=filter_in)
@@ -266,9 +417,37 @@ class XDict(col.OrderedDict):
             else:
                 return default
 
+    def convert(self, mode=None):
+        if mode in [dict, col.OrderedDict, XDict]:
+            dict_class = mode
+        elif mode is None or mode == "xdict":
+            dict_class = self.__class__
+        elif mode == "dict":
+            dict_class = dict
+        elif mode == "odict":
+            dict_class = col.OrderedDict
+        else:
+            raise KeyError(mode)
 
-def identity(x):
-    return x
+        return dict_class([
+            (key, XDict(val).convert(mode) if isinstance(val, dict) else val)
+            for key, val in self.iteritems()
+        ])
+
+    def sort_key(self, by=None, reverse=False):
+        by = replace_none(by, identity)
+        return self.__class__(sorted(
+            self.items(), key=lambda _: by(_[0]), reverse=reverse
+        ))
+
+    def sort_val(self, by=None, reverse=False):
+        by = replace_none(by, identity)
+        return self.__class__(sorted(
+            self.items(), key=lambda _: by(_[1]), reverse=reverse
+        ))
+
+    def _wrap_negative_level(self, level):
+        return _wrap_negative_level(level, total_levels=self.levels)
 
 
 def _wrap_negative_level(level, total_levels):

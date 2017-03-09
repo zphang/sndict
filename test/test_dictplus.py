@@ -39,6 +39,11 @@ empty_dict = dict()
 
 
 def test_dim():
+    assert XDict({0: 1}).dim == (1,)
+    assert XDict({0: {1: 2}}).dim == (1, 1)
+    assert XDict({0: {}}).dim == (1, 0)
+    assert XDict({0: XDict()}).dim == (1, 0)
+
     assert XDict(dict_a).dim == (3, 5)
     assert XDict(dict_b).dim == (3, 3, 5)
     assert XDict(empty_dict).dim == (0,)
@@ -47,11 +52,11 @@ def test_dim():
 def test_levels():
     assert XDict({0: 1}).levels == 1
     assert XDict({0: {1: 2}}).levels == 2
-    assert XDict({0: {1: 2}}).levels == 2
     assert XDict({0: {}}).levels == 2
     assert XDict({0: XDict()}).levels == 2
 
     assert XDict(dict_a).levels == 2
+    assert XDict(dict_b).levels == 3
     assert XDict(empty_dict).levels == 1
 
 
@@ -103,6 +108,8 @@ def test_stratify():
         "key1_1_1"
     assert stratified_dict_b_lv2.values()[0].values()[0].values()[0] == \
         "val1_1_1"
+
+    assert XDict(empty_dict).stratify(10).levels == 1
 
 
 def test_flatten_at():
@@ -169,3 +176,38 @@ def test_set_chain():
     new_dict = sample_dict.set_chain(range(3), "val", inplace=False)
     assert sample_dict.flat_len == 5
     assert new_dict.flat_len == 6
+
+
+def test_convert():
+    converted_b = XDict(dict_b).convert()
+    assert isinstance(converted_b, XDict)
+    assert isinstance(converted_b.values()[0], XDict)
+    assert isinstance(converted_b.values()[0].values()[0], XDict)
+
+    converted_b = XDict(dict_b).convert("odict")
+    assert isinstance(converted_b, col.OrderedDict)
+    assert isinstance(converted_b.values()[0], col.OrderedDict)
+    assert isinstance(converted_b.values()[0].values()[0], col.OrderedDict)
+
+    assert isinstance(XDict(empty_dict).convert(), XDict)
+
+
+def test_sort():
+    new_dict = XDict([
+        (9, 8),
+        (0, 9),
+        (1, 2),
+        (4, 7),
+        (7, 3),
+        (3, 6),
+        (6, 4),
+        (8, 5),
+        (5, 1),
+        (2, 0),
+    ])
+    assert tuple(new_dict.sort_key().keys()) == tuple(range(10))
+    assert tuple(new_dict.sort_val().values()) == tuple(range(10))
+    assert tuple(new_dict.sort_key(lambda x: -x).keys()) == tuple(range(10)[::-1])
+    assert tuple(new_dict.sort_val(lambda x: -x).values()) == tuple(range(10)[::-1])
+    assert tuple(new_dict.sort_key(reverse=True).keys()) == tuple(range(10)[::-1])
+    assert tuple(new_dict.sort_val(reverse=True).values()) == tuple(range(10)[::-1])
