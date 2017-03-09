@@ -95,6 +95,9 @@ class XDict(col.OrderedDict):
     def flatten(self, levels=None):
         """Flatten an XDict a number of levels, starting from the top
 
+        .flatten(0) => Flatten 0 layers => No change
+        .flatten(1) => Flatten 1 layer => Returned XDict is one level shorter
+
         WARNING: Flattening will lose information about empty dicts that aren't
         at the lowest level. This is because empty dicts will not be represented
         in the resultant flattened dict
@@ -330,11 +333,25 @@ class XDict(col.OrderedDict):
         assert len(new_dict) == len(self)
         return new_dict
 
-    def filter_key(self, key_filter, filter_in=True):
-        return self._generic_filter(key_filter=key_filter, filter_in=filter_in)
+    def filter_key(self, key_filter, filter_in=True, level=0):
+        if level == 0:
+            return self._generic_filter(
+                key_filter=key_filter, filter_in=filter_in,
+            )
+        else:
+            return self.val_map(lambda _: self.__class__(_).filter_key(
+                key_filter=key_filter, filter_in=filter_in,
+            ), level=level)
 
-    def filter_val(self, val_filter, filter_in=True):
-        return self._generic_filter(val_filter=val_filter, filter_in=filter_in)
+    def filter_val(self, val_filter, filter_in=True, level=0):
+        if level == 0:
+            return self._generic_filter(
+                val_filter=val_filter, filter_in=filter_in,
+            )
+        else:
+            return self.val_map(lambda _: self.__class__(_).filter_val(
+                val_filter=val_filter, filter_in=filter_in,
+            ), level=level)
 
     def _generic_filter(self, key_filter=None, val_filter=None, filter_in=True):
 
@@ -434,6 +451,15 @@ class XDict(col.OrderedDict):
             for key, val in self.iteritems()
         ])
 
+    def to_dict(self):
+        return self.convert("dict")
+
+    def to_odict(self):
+        return self.convert("odict")
+
+    def to_xdict(self):
+        return self.convert("xdict")
+
     def sort_key(self, by=None, reverse=False):
         by = replace_none(by, identity)
         return self.__class__(sorted(
@@ -448,6 +474,29 @@ class XDict(col.OrderedDict):
 
     def _wrap_negative_level(self, level):
         return _wrap_negative_level(level, total_levels=self.levels)
+
+    def reorder_levels(self, level_ls):
+        if set(level_ls) != set(range(min(len(level_ls), self.levels)))\
+                or len(level_ls) - 1 != max(level_ls):
+            raise LevelError("Improper level_ls {} supplied.".format(level_ls))
+
+        max_level = max(level_ls)
+        new_dict = XDict()
+        for flattened_key, val in self.flatten(levels=max_level).iteritems():
+            new_key = tuple(flattened_key[i] for i in level_ls)
+            new_dict[new_key] = val
+        return new_dict.stratify(max_level)
+
+    def swap_levels(self, level_a, level_b):
+        if level_a == level_b\
+                or level_a > self.levels\
+                or level_b > self.levels:
+            raise LevelError("Improper levels to swap: ({}, {})".format(
+                level_a, level_b,
+            ))
+        level_ls = range(max(level_a, level_b) + 1)
+        level_ls[level_a], level_ls[level_b] = level_b, level_a
+        return self.reorder_levels(level_ls)
 
 
 def _wrap_negative_level(level, total_levels):

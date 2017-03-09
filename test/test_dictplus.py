@@ -151,6 +151,8 @@ def test_filter():
     assert XDict(dict_b).filter_key(["key1", "key2"]).flat_len == 5
     assert XDict(dict_b).filter_key(lambda _: "key" in _).flat_len == 5
 
+    assert XDict(dict_b).filter_key(lambda _: "key" in _).flat_len == 5
+
 
 def test_subset():
     subset_dict = XDict(dict_b).subset(["key2", "key1"])
@@ -211,3 +213,20 @@ def test_sort():
     assert tuple(new_dict.sort_val(lambda x: -x).values()) == tuple(range(10)[::-1])
     assert tuple(new_dict.sort_key(reverse=True).keys()) == tuple(range(10)[::-1])
     assert tuple(new_dict.sort_val(reverse=True).values()) == tuple(range(10)[::-1])
+
+
+def test_reorder_levels():
+    assert tuple(XDict(dict_a).reorder_levels([1, 0]).keys()) == \
+        ("key1_1", "key1_2", "key2_1", "key2_2", "key2_3")
+    assert tuple(XDict(dict_b).reorder_levels([2, 1, 0]).keys()) == \
+        ("key1_1_1", "key1_1_2", "key2_1_1", "key2_1_2", "key2_2_1")
+    assert tuple(XDict(dict_b).reorder_levels([2, 1, 0]).keys()) == \
+        ("key1_1_1", "key1_1_2", "key2_1_1", "key2_1_2", "key2_2_1")
+    assert tuple(XDict(dict_b).reorder_levels([2, 1, 0]).values()[0].keys()) ==\
+        ("key1_1",)
+
+
+def test_swap_levels():
+    assert XDict(dict_b).swap_levels(1, 2).get_chain([
+        "key2", "key2_2_1", "key2_2"
+    ]) == "val2_2_1"
