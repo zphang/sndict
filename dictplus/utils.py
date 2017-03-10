@@ -39,3 +39,16 @@ def identity(x):
     x: object
     """
     return x
+
+
+def list_add(lists_of_lists):
+    assert len(lists_of_lists) > 0
+    new_ls = [0] * len(lists_of_lists[0])
+    for sublist in lists_of_lists:
+        for i, elem in enumerate(sublist):
+            new_ls[i] += elem
+    return new_ls
+
+
+def list_equal(list_a, list_b):
+    return tuple(list_a) == tuple(list_b)
