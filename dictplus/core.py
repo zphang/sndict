@@ -435,6 +435,17 @@ class XDict(col.OrderedDict):
                 return default
 
     def convert(self, mode=None):
+        """Convert all nested dictionaries to desired type.
+
+        Parameters
+        ----------
+        mode: str (dict, odict, xdict)
+            dict type to convert to
+
+        Returns
+        -------
+        dict, OrderedDict or XDict
+        """
         if mode in [dict, col.OrderedDict, XDict]:
             dict_class = mode
         elif mode is None or mode == "xdict":
@@ -452,30 +463,75 @@ class XDict(col.OrderedDict):
         ])
 
     def to_dict(self):
+        """Convert all nested dictionaries to dict.
+
+        Returns
+        -------
+        dict
+        """
         return self.convert("dict")
 
     def to_odict(self):
+        """Convert all nested dictionaries to OrderedDict.
+
+        Returns
+        -------
+        OrderedDict
+        """
         return self.convert("odict")
 
     def to_xdict(self):
+        """Convert all nested dictionaries to XDict.
+
+        Returns
+        -------
+        XDict
+        """
         return self.convert("xdict")
 
     def sort_key(self, by=None, reverse=False):
         by = replace_none(by, identity)
         return self.__class__(sorted(
-            self.items(), key=lambda _: by(_[0]), reverse=reverse
+            self.items(), key=lambda _: by(_[0]), reverse=reverse,
         ))
 
     def sort_val(self, by=None, reverse=False):
         by = replace_none(by, identity)
         return self.__class__(sorted(
-            self.items(), key=lambda _: by(_[1]), reverse=reverse
+            self.items(), key=lambda _: by(_[1]), reverse=reverse,
         ))
 
     def _wrap_negative_level(self, level):
+        """Convenience method for wrapping negative level indexing
+
+        Parameters
+        ----------
+        level: int
+            Level, going from -(levels-1) to levels-1
+
+        Returns
+        -------
+        int
+            Positive level
+        """
         return _wrap_negative_level(level, total_levels=self.levels)
 
     def reorder_levels(self, level_ls):
+        """Reorder the levels of hierarchy in nested dictionaries
+
+        You can supply a subset of top-levels of the XDict, e.g.
+            x_dict.reorder_levels([2,0,1])
+        for a 10-level dict. Remaining levels will not be affected
+
+        Parameters
+        ----------
+        level_ls: list(int)
+            List of levels to reorder, starting from 0 to len(level_ls) - 1
+
+        Returns
+        -------
+        XDict
+        """
         if set(level_ls) != set(range(min(len(level_ls), self.levels)))\
                 or len(level_ls) - 1 != max(level_ls):
             raise LevelError("Improper level_ls {} supplied.".format(level_ls))
@@ -488,6 +544,20 @@ class XDict(col.OrderedDict):
         return new_dict.stratify(max_level)
 
     def swap_levels(self, level_a, level_b):
+        """Swap two levels of hierarchy in nested dictionaries
+
+        Parameters
+        ----------
+        level_a: int
+            First level to swap
+
+        level_b: int
+            Second level to swap
+
+        Returns
+        -------
+        XDict
+        """
         if level_a == level_b\
                 or level_a > self.levels\
                 or level_b > self.levels:
@@ -500,6 +570,18 @@ class XDict(col.OrderedDict):
 
 
 def _wrap_negative_level(level, total_levels):
+    """Wrap negative level indexing
+
+    Parameters
+    ----------
+    level: int
+        Level, going from -(total_levels-1) to total_levels-1
+
+    Returns
+    -------
+    int
+        Positive level
+    """
     if level >= 0:
         return level
     else:

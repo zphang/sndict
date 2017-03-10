@@ -48,3 +48,6 @@ Used in conjunction, these allow for short but powerful transformations and oper
 
 * Naming levels
 * Think about better handling unbalanced-depth dictionaries
+
+* Write ix (: for *)
+* Sort at multiple levels
