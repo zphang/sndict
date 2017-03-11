@@ -1,3 +1,15 @@
+class DefaultArgumentClass(object):
+    """Non-informative class for expressing "default" values, that isn't None"""
+    pass
+
+DEFAULT_ARGUMENT = DefaultArgumentClass()
+
+
+def is_default_argument(arg):
+    return isinstance(arg, DefaultArgumentClass)
+
+
+
 def replace_none(value, default, lazy=False):
     """Returns a
 

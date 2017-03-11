@@ -1,15 +1,8 @@
 import collections as col
 import types
 
-from utils import replace_none, identity
+from utils import replace_none, identity, DEFAULT_ARGUMENT, is_default_argument
 from exceptions import LevelError
-
-
-class _NothingClass(object):
-    """Non-informative class for expressing "default" values, that isn't None"""
-    pass
-
-_NOTHING = _NothingClass()
 
 
 class XDict(col.OrderedDict):
@@ -415,7 +408,7 @@ class XDict(col.OrderedDict):
 
         pointer[key_ls[-1]] = val
 
-    def get_chain(self, key_ls, default=_NOTHING):
+    def get_chain(self, key_ls, default=DEFAULT_ARGUMENT):
         if not key_ls:
             raise LevelError("Cannot get_chain with empty key_ls")
 
@@ -429,7 +422,7 @@ class XDict(col.OrderedDict):
                 pointer = self.__class__(pointer)
             return pointer
         except KeyError:
-            if isinstance(default, _NothingClass):
+            if is_default_argument(default):
                 raise KeyError(key_ls)
             else:
                 return default
