@@ -1,0 +1,136 @@
+import collections as col
+from nose.tools import assert_raises
+
+from dictplus.sndict import StructuredNestedDict, LevelError, _get_filter_func
+from dictplus.utils import list_equal, strip_spaces
+
+
+dict_b = col.OrderedDict([
+    ("key1", col.OrderedDict([
+        ("key1_1", col.OrderedDict([
+            ("key1_1_1", "val1_1_1"),
+            ("key1_1_2", "val1_1_2"),
+        ])),
+    ])),
+    ("key2", col.OrderedDict([
+        ("key2_1", col.OrderedDict([
+            ("key2_1_1", "val2_1_1"),
+            ("key2_1_2", "val2_1_2"),
+        ])),
+        ("key2_2", col.OrderedDict([
+            ("key2_2_1", "val2_2_1"),
+        ])),
+    ])),
+    ("key3", col.OrderedDict()),
+])
+
+
+def test_dim():
+    assert StructuredNestedDict(dict_b, levels=1).dim == (3,)
+    assert StructuredNestedDict(dict_b, levels=2).dim == (3, 3)
+    assert StructuredNestedDict(dict_b, levels=3).dim == (3, 3, 5)
+
+
+def test_iterflatten():
+    sndict = StructuredNestedDict(dict_b, levels=3)
+    assert list_equal(
+        dict(sndict.iterflatten(1)).keys(),
+        [('key1', 'key1_1'), ('key2', 'key2_2'), ('key2', 'key2_1')]
+    )
+    assert list_equal(
+        dict(sndict.iterflatten(2)).values(),
+        ['val1_1_2', 'val2_1_1', 'val2_1_2', 'val2_2_1', 'val1_1_1'],
+    )
+    assert list_equal(
+        dict(sndict.iterflatten(-2)).keys(),
+        dict(sndict.iterflatten(1)).keys(),
+    )
+    assert list_equal(
+        dict(sndict.iterflatten(-1)).keys(),
+        dict(sndict.iterflatten(2)).keys(),
+    )
+
+
+def test_flatten():
+    named_sndict_b = StructuredNestedDict(
+        dict_b, levels=3, level_names=["a", "b", "c"])
+    assert named_sndict_b.flatten(0).dim == named_sndict_b.dim
+    assert named_sndict_b.flatten(1).dim == (3, 5)
+    assert list_equal(
+        map(tuple, named_sndict_b.flatten(1).keys()),
+        [('key1', 'key1_1'), ('key2', 'key2_1'), ('key2', 'key2_2')],
+    )
+    assert named_sndict_b.flatten(1).level_names == ("a___b", "c")
+    assert_raises(LevelError, named_sndict_b.flatten, 3)
+
+
+def test_stratify():
+    named_sndict_b = StructuredNestedDict(
+        dict_b, levels=3, level_names=["a", "b", "c"])
+    flattened_stratified_named_sndict_b = named_sndict_b\
+        .flatten(1, named=True).stratify(1)
+    assert list_equal(
+        flattened_stratified_named_sndict_b.level_names,
+        ["a", "b", "c"]
+    )
+    assert flattened_stratified_named_sndict_b.dim == (2, 3, 5)
+    assert flattened_stratified_named_sndict_b
+
+
+def test_str():
+    assert strip_spaces(str(StructuredNestedDict(dict_b, levels=2))) == \
+        "StructuredNestedDict({'key1':{'key1_1':{'key1_1_1':'val1_1_1'," \
+        "'key1_1_2':'val1_1_2',},},'key2':{'key2_1':{'key2_1_1':'val2_1_1'," \
+        "'key2_1_2':'val2_1_2',},'key2_2':{'key2_2_1':'val2_2_1',},}," \
+        "'key3':{},},levels=2)"
+
+    assert strip_spaces(str(
+        StructuredNestedDict(dict_b, levels=2, level_names=["a", "b"])
+    )) == "StructuredNestedDict({'key1':{'key1_1':{'key1_1_1':'val1_1_1'," \
+          "'key1_1_2':'val1_1_2',},},'key2':{'key2_1':{'key2_1_1':'val2_1_1'," \
+          "'key2_1_2':'val2_1_2',},'key2_2':{'key2_2_1':'val2_2_1',},}," \
+          "'key3':{},},levels=2,level_names=('a','b'))"
+
+
+def test_filter_key():
+    sndict_b = StructuredNestedDict(dict_b, levels=3)
+    assert list_equal(
+        sndict_b.filter_key(["key1"]).keys(),
+        ['key1']
+    )
+    assert list_equal(
+        sndict_b.filter_key([["key1", "key3"]]).keys(),
+        ['key1', 'key3'],
+    )
+    assert list_equal(
+        sndict_b.filter_key([["key1", "key3"]], drop_empty=True).keys(),
+        ['key1'],
+    )
+    assert list_equal(
+        sndict_b.filter_key([slice(None), "key1_1"]).flatten_values(),
+        ['val1_1_1', 'val1_1_2'],
+    )
+
+
+def test_filter_funcs():
+    assert _get_filter_func(slice(None))(False)
+    assert _get_filter_func(slice(None))(True)
+    assert _get_filter_func(lambda i: i % 2 == 0)(2)
+    assert not _get_filter_func(lambda i: i % 2 == 0)(1)
+    assert _get_filter_func([1, 2, 3])(1)
+    assert not _get_filter_func([1, 2, 3])(4)
+    assert _get_filter_func(1)(1)
+    assert not _get_filter_func(slice(None), filter_out=True)(True)
+
+
+def test_rename_levels():
+    named_sndict_b = StructuredNestedDict(
+        dict_b, levels=3, level_names=["a", "b", "c"])
+
+    named_sndict_b2 = named_sndict_b.modify_metadata(levels=2)
+    assert named_sndict_b2.levels == 2
+    assert_raises(LevelError, named_sndict_b2.flatten, 2)
+
+    named_sndict_b2 = named_sndict_b.modify_metadata(
+        levels=3, level_names=["A", "B", "C"])
+    assert named_sndict_b2.level_names == ("A", "B", "C")
