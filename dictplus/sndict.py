@@ -3,7 +3,7 @@ import types
 
 from utils import (
     list_add, dict_to_string, tuple_constructor, list_is_unique, replace_none,
-    GetSetFunctionClass, negate
+    GetSetFunctionClass, negate, list_index,
 )
 
 FLATTENED_LEVEL_NAME_SEPARATOR = "___"
@@ -22,6 +22,8 @@ class StructuredNestedDict(col.OrderedDict):
         else:
             levels = kwargs.pop("levels", len(level_names))
 
+        self._nested_initialized = False
+
         # Initialize superclass
         super(self.__class__, self).__init__(*args, **kwargs)
 
@@ -38,6 +40,7 @@ class StructuredNestedDict(col.OrderedDict):
         self._dim = self._nested_init(
             self, levels=self._levels, level_names=self.level_names,
         )
+        self._nested_initialized = True
 
     @classmethod
     def _nested_init(cls, obj, levels, level_names):
@@ -194,6 +197,63 @@ class StructuredNestedDict(col.OrderedDict):
                           for criteria in criteria_ls]
         return self._filter_key(self, filter_func_ls, drop_empty)
 
+    def redimension(self, level_ls=None, level_name_ls=None):
+        assert (level_ls is None) != (level_name_ls is None), \
+            "Only either level_ls or level_name_ls can be supplied"
+
+        if level_ls is not None:
+            assert len(level_ls) > 0
+            if not isinstance(level_ls[0], int):
+                level_name_ls = level_ls
+            else:
+                assert set(level_ls) == set(range(len(level_ls)))
+
+        if level_name_ls is not None:
+            assert list_is_unique(level_name_ls)
+            if not set(level_name_ls) == \
+                    set(self.level_names[:len(level_name_ls)]):
+                raise RuntimeError("Redimensioned level_name_ls must be "
+                                   "contiguous from level 0")
+
+            level_ls = [self.level_names.index(level_name)
+                        for level_name in level_name_ls]
+
+        return self._redimension(level_ls)
+
+    def _redimension(self, level_ls):
+        num_levels = len(level_ls)
+
+        new_dict = col.OrderedDict()
+        for key_tup, val in self.iterflatten(num_levels - 1):
+            new_dict[tuple(list_index(key_tup, level_ls))] = val
+
+        if self._level_names_is_set:
+            new_level_names = tuple(list_index(self.level_names, level_ls))\
+                + self.level_names[num_levels:]
+        else:
+            new_level_names = None
+
+        return self.__class__(new_dict, levels=self.levels - num_levels + 1)\
+            .stratify((len(level_ls)) - 1)\
+            .modify_metadata(level_names=new_level_names)
+
+    def swap_levels(self, level_a, level_b):
+        if not isinstance(level_a, int):
+            level_a = self.level_names.index(level_a)
+        if not isinstance(level_b, int):
+            level_b = self.level_names.index(level_b)
+
+        assert level_a != level_b
+        assert 0 <= level_a < self.levels
+        assert 0 <= level_b < self.levels
+
+        required_levels = max(level_a, level_b) + 1
+        new_level_ls = range(required_levels)
+        new_level_ls[level_b], new_level_ls[level_a] = \
+            new_level_ls[level_a], new_level_ls[level_b]
+
+        return self._redimension(new_level_ls)
+
     @classmethod
     def _filter_key(cls, obj, filter_func_ls, drop_empty):
         if not filter_func_ls or not isinstance(obj, StructuredNestedDict):
@@ -258,8 +318,74 @@ class StructuredNestedDict(col.OrderedDict):
             args_string=", ".join(args_string_ls),
         )
 
+    def __setitem__(self, key, value):
+        if not self._nested_initialized:
+            super(self.__class__, self).__setitem__(key, value)
+            return
+
+        if key in self:
+            del self[key]
+
+        if self.levels > 1:
+            if isinstance(value, dict) \
+                    and not isinstance(value, StructuredNestedDict):
+                value = StructuredNestedDict(
+                    value, levels=self.levels - 1,
+                    level_names=self.level_names[1:]
+                    if self._level_names_is_set else None,
+                )
+
+            if not isinstance(value, StructuredNestedDict) or \
+                    value.levels != self.levels - 1:
+                raise TypeError(
+                    "Inserted item needs to be a StructuredNestedDict "
+                    "with level={}".format(self.levels - 1))
+            dim_add = (1,) + value.dim
+        else:
+            dim_add = (1,)
+        self._dim_modify(dim_add)
+        super(self.__class__, self).__setitem__(key, value)
+
+    def __delitem__(self, key):
+        item = self[key]
+        super(self.__class__, self).__delitem__(key)
+        if self.levels > 1:
+            dim_subtract = (1,) + item.dim
+            dim_add = [-i for i in dim_subtract]
+        else:
+            dim_add = (-1,)
+
+        self._dim_modify(dim_add)
+
+    def _dim_modify(self, dim_mod):
+        assert len(self.dim) == len(dim_mod)
+        self._dim = tuple([
+            dim_x + dim_mod_x
+            for dim_x, dim_mod_x in zip(self.dim, dim_mod)
+        ])
+
     def _wrap_level(self, level):
         return _wrap_level(level, allowed_level=self.levels)
+
+    def sort_keys(self, cmp=None, key=None, reverse=False):
+        return self._new_with_metadata([
+            (key, self[key])
+            for key in sorted(self.keys(), cmp, key, reverse)
+        ])
+
+    def sort_values(self, cmp=None, key=None, reverse=False):
+        if cmp is not None:
+            cmp = lambda a, b: cmp(a[1], b[1])
+
+        if key is not None:
+            key = lambda a: key(a[1])
+        else:
+            key = lambda a: a[1]
+
+        return self._new_with_metadata([
+            (key, val)
+            for key, val in sorted(self.items(), cmp, key, reverse)
+        ])
 
 
 def _wrap_level(level, allowed_level):

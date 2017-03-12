@@ -94,6 +94,10 @@ def list_equal(list_a, list_b):
     return tuple(list_a) == tuple(list_b)
 
 
+def list_index(ls, indices):
+    return [ls[i] for i in indices]
+
+
 def dict_to_string(dictionary, indent=4):
     if len(dictionary) == 0:
         return "{}"
