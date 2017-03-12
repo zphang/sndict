@@ -223,3 +223,13 @@ def test_sort_values():
             .sort_values().values(),
         ["x", "y", "z"],
     )
+
+
+def test_nested_set_and_get():
+    sndict = StructuredNestedDict(dict_b, levels=3)
+    assert sndict.has_nested_key(('key1', 'key1_1', 'key1_1_1'))
+    assert not sndict.has_nested_key(('keyX', 'keyX_1', 'keyX_1_1'))
+
+    sndict.nested_set(('keyX', 'keyX_1', 'keyX_1_1'), "valX_1_1")
+    assert sndict.has_nested_key(('keyX', 'keyX_1', 'keyX_1_1'))
+    assert sndict.nested_get(('keyX', 'keyX_1', 'keyX_1_1')) == "valX_1_1"
