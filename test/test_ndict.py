@@ -94,6 +94,7 @@ def test_nested_update():
 def test_ix():
     ndict = NestedDict(dict_a)
     assert ndict.ix['key3', 'key3_2', 'key3_2_1'] == "val3_2_1"
+    assert isinstance(ndict.ix['key3'], dict)
     try:
         _ = ndict.ix['keyX', 'keyX_1', 'keyX_1_1']
         raise RuntimeError

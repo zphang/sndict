@@ -1,6 +1,8 @@
 import collections as col
 
-from utils import GetSetFunctionClass, dict_to_string
+from utils import (
+    GetSetFunctionClass, GetSetAmbiguousTupleFunctionClass, dict_to_string
+)
 
 
 class NestedDict(col.OrderedDict):
@@ -120,8 +122,22 @@ class NestedDict(col.OrderedDict):
         )
 
     @property
-    def ix(self):
+    def ixkey(self):
         return GetSetFunctionClass(
+            get_func=self.get,
+            set_func=self.__setitem__,
+        )
+
+    @property
+    def ixkeys(self):
+        return GetSetFunctionClass(
+            get_func=self.nested_get,
+            set_func=self.nested_set,
+        )
+
+    @property
+    def ix(self):
+        return GetSetAmbiguousTupleFunctionClass(
             get_func=self.nested_get,
             set_func=self.nested_set,
         )

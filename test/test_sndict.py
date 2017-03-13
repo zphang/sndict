@@ -233,3 +233,16 @@ def test_nested_set_and_get():
     sndict.nested_set(('keyX', 'keyX_1', 'keyX_1_1'), "valX_1_1")
     assert sndict.has_nested_key(('keyX', 'keyX_1', 'keyX_1_1'))
     assert sndict.nested_get(('keyX', 'keyX_1', 'keyX_1_1')) == "valX_1_1"
+
+
+def test_ix():
+    sndict = StructuredNestedDict(dict_b, levels=3)
+    assert sndict.ix['key1', 'key1_1', 'key1_1_1'] == "val1_1_1"
+    try:
+        _ = sndict.ix['keyX', 'keyX_1', 'keyX_1_1']
+        raise RuntimeError
+    except KeyError:
+        pass
+
+        sndict.ix['keyX', 'keyX_1', 'keyX_1_1'] = "valX_1_1"
+    assert sndict.ix['keyX', 'keyX_1', 'keyX_1_1'] == "valX_1_1"

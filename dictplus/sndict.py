@@ -3,8 +3,8 @@ import types
 
 from ndict import NestedDict
 from utils import (
-    list_add, dict_to_string, tuple_constructor, list_is_unique, replace_none,
-    GetSetFunctionClass, negate, list_index,
+    list_add, dict_to_string, tuple_constructor, list_is_unique,
+    GetSetFunctionClass, GetSetAmbiguousTupleFunctionClass, negate, list_index,
 )
 
 FLATTENED_LEVEL_NAME_SEPARATOR = "___"
@@ -209,6 +209,13 @@ class StructuredNestedDict(col.OrderedDict):
             pointer = pointer[key]
         return pointer
 
+    def _select(self, key_or_criteria_ls):
+        if any(map(_is_criteria, key_or_criteria_ls)):
+            return self.filter_key(criteria_ls=key_or_criteria_ls)\
+                .flatten_values(len(key_or_criteria_ls) - 1)
+        else:
+            return self.nested_get(key_or_criteria_ls)
+
     def redimension(self, level_ls=None, level_name_ls=None):
         assert (level_ls is None) != (level_name_ls is None), \
             "Only either level_ls or level_name_ls can be supplied"
@@ -378,6 +385,27 @@ class StructuredNestedDict(col.OrderedDict):
             for key, val in sorted(self.items(), cmp, key, reverse)
         ])
 
+    @property
+    def ixkey(self):
+        return GetSetFunctionClass(
+            get_func=self.get,
+            set_func=self.__setitem__,
+        )
+
+    @property
+    def ixkeys(self):
+        return GetSetFunctionClass(
+            get_func=self.nested_get,
+            set_func=self.nested_set,
+        )
+
+    @property
+    def ix(self):
+        return GetSetAmbiguousTupleFunctionClass(
+            get_func=self._select,
+            set_func=self.nested_set,
+        )
+
 
 def _wrap_level(level, allowed_level):
     if level < 0:
@@ -393,17 +421,26 @@ def _wrap_level(level, allowed_level):
     return wrapped_level
 
 
-def _get_filter_func(val_or_ls_or_lambda, filter_out=False):
-    if val_or_ls_or_lambda == slice(None):
+def _get_filter_func(criteria, filter_out=False):
+    if criteria == slice(None):
         filter_func = lambda x: True
-    elif isinstance(val_or_ls_or_lambda, types.FunctionType):
-        filter_func = val_or_ls_or_lambda
-    elif isinstance(val_or_ls_or_lambda, (list, set)):
-        filter_func = lambda x: x in val_or_ls_or_lambda
+    elif isinstance(criteria, types.FunctionType):
+        filter_func = criteria
+    elif isinstance(criteria, (list, set)):
+        filter_func = lambda x: x in criteria
     else:
-        filter_func = lambda x: x == val_or_ls_or_lambda
+        filter_func = lambda x: x == criteria
 
     if filter_out:
         filter_func = negate(filter_func)
 
     return filter_func
+
+
+def _is_criteria(key_or_criteria):
+    if key_or_criteria == slice(None):
+        return True
+    elif isinstance(key_or_criteria, (list, set, types.FunctionType)):
+        return True
+    else:
+        return False

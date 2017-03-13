@@ -28,6 +28,24 @@ class GetSetFunctionClass(object):
         self._set_func(key, value)
 
 
+class GetSetAmbiguousTupleFunctionClass(object):
+    def __init__(self, get_func, set_func):
+        self._get_func = get_func
+        self._set_func = set_func
+
+    def __getitem__(self, key):
+        if isinstance(key, (tuple, list)):
+            return self._get_func(key)
+        else:
+            return self._get_func((key, ))
+
+    def __setitem__(self, key, value):
+        if isinstance(key, (tuple, list)):
+            return self._set_func(key, value)
+        else:
+            return self._set_func((key, ), value)
+
+
 def strip_spaces(string):
     pattern = re.compile(r'\s+')
     return re.sub(pattern, '', string)
