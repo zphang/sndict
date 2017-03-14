@@ -1,23 +1,20 @@
 import re
 
 
-class DefaultArgumentClass(object):
-    """Non-informative class for expressing "default" values, that isn't None"""
-    pass
-
-DEFAULT_ARGUMENT = DefaultArgumentClass()
-
-
-class GetFunctionClass(object):
-    def __init__(self, func):
-        self._func = func
-
-    def __getitem__(self, key):
-        return self._func(key)
-
+# ==== Property Classes ==== #
 
 class GetSetFunctionClass(object):
+
     def __init__(self, get_func, set_func):
+        """Class that provides __getitem__ / __setitem__ methods
+
+        Parameters
+        ----------
+        get_func: function
+            __getitem__ method
+        set_func: function
+            __setitem__ method
+        """
         self._get_func = get_func
         self._set_func = set_func
 
@@ -30,6 +27,18 @@ class GetSetFunctionClass(object):
 
 class GetSetAmbiguousTupleFunctionClass(object):
     def __init__(self, get_func, set_func):
+        """Class that provides __getitem__ / __setitem__ methods.
+        Because it's ambiguous as to whether a provided key is a tuple or
+        multiple arguments, this class assume that tuples/lists are
+        multiple arguments.
+
+        Parameters
+        ----------
+        get_func: function
+            __getitem__ method
+        set_func: function
+            __setitem__ method
+        """
         self._get_func = get_func
         self._set_func = set_func
 
@@ -46,19 +55,152 @@ class GetSetAmbiguousTupleFunctionClass(object):
             return self._set_func((key, ), value)
 
 
+# ==== Lists ==== #
+
+def list_add(lists_of_lists):
+    """Element-wise sum of list of lists
+
+    Parameters
+    ----------
+    lists_of_lists: list
+        List of numbers
+
+    Returns
+    -------
+    list
+    """
+    assert len(lists_of_lists) > 0
+    new_ls = [0] * len(lists_of_lists[0])
+    for sublist in lists_of_lists:
+        for i, elem in enumerate(sublist):
+            new_ls[i] += elem
+    return new_ls
+
+
+def list_equal(list_a, list_b):
+    """Check if two lists are equal
+
+    Parameters
+    ----------
+    list_a: list
+    list_b: list
+
+    Returns
+    -------
+    bool
+    """
+    return tuple(list_a) == tuple(list_b)
+
+
+def list_index(ls, indices):
+    """numpy-style creation of new list based on a list of elements and another
+    list of indices
+
+    Parameters
+    ----------
+    ls: list
+        List of elements
+    indices: list
+        List of indices
+
+    Returns
+    -------
+    list
+    """
+    return [ls[i] for i in indices]
+
+
+def list_is_unique(ls):
+    """Check if every element in a list is unique
+
+    Parameters
+    ----------
+    ls: list
+
+    Returns
+    -------
+    bool
+    """
+    return len(ls) == len(set(ls))
+
+
+# ==== Tuples ==== #
+
+def tuple_constructor(*args):
+    """Construct tuple from *args syntax
+
+    Parameters
+    ----------
+    args: list
+        Arguments
+
+    Returns
+    -------
+    tuple
+    """
+    return tuple(args)
+
+
+# ==== Dicts ==== #
+
+def dict_to_string(dictionary, indent=4):
+    """Serialize dict as string
+
+    Parameters
+    ----------
+    dictionary: dict
+    indent: int
+        Number of spaces to indent per level
+
+    Returns
+    -------
+    str
+    """
+    if len(dictionary) == 0:
+        return "{}"
+    indentation = " " * indent
+    string = "{\n"
+    for key, val in dictionary.iteritems():
+        if isinstance(val, dict):
+            if len(val) == 0:
+                string += "{}{}: {{}}".format(indentation, repr(key))
+            else:
+                string += "{}{}: ".format(indentation, repr(key))
+                dict_string_lines = dict_to_string(val).splitlines()
+                string += dict_string_lines[0]
+                for line in dict_string_lines[1:]:
+                    string += "\n{}{}".format(
+                        indentation, line
+                    )
+        else:
+            string += "{}{}: {}".format(
+                indentation, repr(key), repr(val)
+            )
+        string += ",\n"
+    string += "}"
+    return string
+
+
+# ==== Strings ==== #
+
 def strip_spaces(string):
+    """Remove white-space from a string
+    Parameters
+    ----------
+    string: str
+
+    Returns
+    -------
+    str
+    """
     pattern = re.compile(r'\s+')
     return re.sub(pattern, '', string)
 
 
-def is_default_argument(arg):
-    return isinstance(arg, DefaultArgumentClass)
-
+# ==== Functions ==== #
 
 def replace_none(value, default, lazy=False):
-    """Returns a
-
-    Used for better argument resolution
+    """Return value if it's not None, otherwise return default value
 
     Parameters
     ----------
@@ -99,58 +241,17 @@ def identity(x):
     return x
 
 
-def list_add(lists_of_lists):
-    assert len(lists_of_lists) > 0
-    new_ls = [0] * len(lists_of_lists[0])
-    for sublist in lists_of_lists:
-        for i, elem in enumerate(sublist):
-            new_ls[i] += elem
-    return new_ls
-
-
-def list_equal(list_a, list_b):
-    return tuple(list_a) == tuple(list_b)
-
-
-def list_index(ls, indices):
-    return [ls[i] for i in indices]
-
-
-def dict_to_string(dictionary, indent=4):
-    if len(dictionary) == 0:
-        return "{}"
-    indentation = " " * indent
-    string = "{\n"
-    for key, val in dictionary.iteritems():
-        if isinstance(val, dict):
-            if len(val) == 0:
-                string += "{}{}: {{}}".format(indentation, repr(key))
-            else:
-                string += "{}{}: ".format(indentation, repr(key))
-                dict_string_lines = dict_to_string(val).splitlines()
-                string += dict_string_lines[0]
-                for line in dict_string_lines[1:]:
-                    string += "\n{}{}".format(
-                        indentation, line
-                    )
-        else:
-            string += "{}{}: {}".format(
-                indentation, repr(key), repr(val)
-            )
-        string += ",\n"
-    string += "}"
-    return string
-
-
-def tuple_constructor(*args):
-    return tuple(args)
-
-
-def list_is_unique(ls):
-    return len(ls) == len(set(ls))
-
-
 def negate(func):
+    """Returns a function that returns 'not' of input functions
+
+    Parameters
+    ----------
+    func: function
+
+    Returns
+    -------
+    function
+    """
     def negated_func(*args, **kwargs):
         return not func(*args, **kwargs)
     return negated_func

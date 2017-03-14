@@ -136,25 +136,25 @@ def test_rename_levels():
     assert named_sndict_b2.level_names == ("A", "B", "C")
 
 
-def test_redimension():
+def test_rearrange():
     named_sndict_b = StructuredNestedDict(
         dict_b, levels=3, level_names=["a", "b", "c"])
     assert list_equal(
-        named_sndict_b.redimension([1, 0]).flatten_keys(2, named=False),
+        named_sndict_b.rearrange([1, 0]).flatten_keys(2, named=False),
         [('key1_1', 'key1', 'key1_1_1'),
          ('key1_1', 'key1', 'key1_1_2'),
          ('key2_1', 'key2', 'key2_1_1'),
          ('key2_1', 'key2', 'key2_1_2'),
          ('key2_2', 'key2', 'key2_2_1')],
     )
-    assert named_sndict_b.redimension([1, 0]).level_names \
+    assert named_sndict_b.rearrange([1, 0]).level_names \
         == ("b", "a", "c")
-    assert named_sndict_b.redimension([0, 1]).level_names \
+    assert named_sndict_b.rearrange([0, 1]).level_names \
         == ("a", "b", "c")
 
     assert list_equal(
         named_sndict_b\
-            .redimension(["c", "b", "a"])\
+            .rearrange(["c", "b", "a"])\
             .flatten_keys(2, named=False),
         [('key1_1_1', 'key1_1', 'key1'),
          ('key1_1_2', 'key1_1', 'key1'),
@@ -162,7 +162,7 @@ def test_redimension():
          ('key2_1_2', 'key2_1', 'key2'),
          ('key2_2_1', 'key2_2', 'key2')],
     )
-    assert named_sndict_b.redimension(["c", "b", "a"]).level_names \
+    assert named_sndict_b.rearrange(["c", "b", "a"]).level_names \
         == ("c", "b", "a")
 
 
