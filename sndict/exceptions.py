@@ -1,0 +1,2 @@
+class LevelError(RuntimeError):
+    pass

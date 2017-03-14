@@ -1,8 +1,7 @@
 import collections as col
-from nose.tools import assert_raises
 
-from dictplus.ndict import NestedDict
-from dictplus.utils import list_equal
+from sndict.ndict import NestedDict
+from sndict.utils import list_equal
 
 
 dict_a = col.OrderedDict([
@@ -61,20 +60,6 @@ def test_flatten_values():
     )
 
 
-def test_convert():
-    converted_b = NestedDict(dict_a).convert()
-    assert isinstance(converted_b, NestedDict)
-    assert isinstance(converted_b.values()[1], NestedDict)
-    assert isinstance(converted_b.values()[2].values()[0], NestedDict)
-
-    converted_b = NestedDict(dict_a).convert("odict")
-    assert isinstance(converted_b, col.OrderedDict)
-    assert isinstance(converted_b.values()[1], col.OrderedDict)
-    assert isinstance(converted_b.values()[2].values()[0], col.OrderedDict)
-
-    assert isinstance(NestedDict(empty_dict).convert(), NestedDict)
-
-
 def test_nested_set_and_get():
     ndict = NestedDict(dict_a)
     assert ndict.has_nested_key(('key3', 'key3_2', 'key3_2_1'))
@@ -103,3 +88,17 @@ def test_ix():
 
     ndict.ix['keyX', 'keyX_1', 'keyX_1_1'] = "valX_1_1"
     assert ndict.ix['keyX', 'keyX_1', 'keyX_1_1'] == "valX_1_1"
+
+
+def test_convert():
+    converted_b = NestedDict(dict_a).convert()
+    assert isinstance(converted_b, NestedDict)
+    assert isinstance(converted_b.values()[1], NestedDict)
+    assert isinstance(converted_b.values()[2].values()[0], NestedDict)
+
+    converted_b = NestedDict(dict_a).convert("odict")
+    assert isinstance(converted_b, col.OrderedDict)
+    assert isinstance(converted_b.values()[1], col.OrderedDict)
+    assert isinstance(converted_b.values()[2].values()[0], col.OrderedDict)
+
+    assert isinstance(NestedDict(empty_dict).convert(), NestedDict)
