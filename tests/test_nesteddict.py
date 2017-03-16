@@ -1,6 +1,6 @@
 import collections as col
 
-from sndict.ndict import NestedDict
+from sndict.nesteddict import NestedDict
 from sndict.utils import list_equal
 
 
@@ -102,3 +102,10 @@ def test_convert():
     assert isinstance(converted_b.values()[2].values()[0], col.OrderedDict)
 
     assert isinstance(NestedDict(empty_dict).convert(), NestedDict)
+
+
+def test_to_tree_string():
+    assert NestedDict(dict_a).to_tree_string("o-", val_mode="repr") == \
+       "key1: 'val1'\nkey2:\n'-key2_1: 'val2_1'\n'-key2_2: " \
+       "'val2_2'\nkey3:\n'-key3_1:\n  '-key3_1_1: 'val3_1_1'\n  " \
+       "'-key3_1_2: 'val3_1_2'\n'-key3_2:\n  '-key3_2_1: 'val3_2_1'\n"

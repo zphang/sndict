@@ -1,13 +1,13 @@
 import collections as col
 import types
 
-from ndict import NestedDict
+from nesteddict import NestedDict
 from exceptions import LevelError
 from utils import (
     GetSetFunctionClass, GetSetAmbiguousTupleFunctionClass,
     list_add, list_index, list_is_unique,
     tuple_constructor,
-    dict_to_string,
+    dict_to_string, get_str_func,
     replace_none, identity, negate,
 )
 
@@ -753,7 +753,6 @@ class StructuredNestedDict(col.OrderedDict):
                 ))
             criteria_ls = new_criteria_dict.values()
 
-        print criteria_ls
         filter_func_ls = [_get_filter_func(criteria, filter_out=filter_out)
                           for criteria in criteria_ls]
         return self._filter_key(self, filter_func_ls, drop_empty)
@@ -788,7 +787,7 @@ class StructuredNestedDict(col.OrderedDict):
 
     @classmethod
     def _filter_values(cls, obj, filter_func, levels_remaining, drop_empty):
-        """Underlying method for filter_key"""
+        """Underlying method for filter_values"""
 
         if levels_remaining == 0:
             return obj.replace_data([
@@ -885,15 +884,28 @@ class StructuredNestedDict(col.OrderedDict):
         except KeyError:
             return False
 
-    def _select(self, key_or_criteria_ls):
+    def _get_multiple(self, key_or_criteria_ls):
         """Check whether list has keys or criteria (i.e. if any of the criteria
-        lead to special filtering functions
-        """
+        lead to special filtering/getting functions"""
         if any(map(_is_criteria, key_or_criteria_ls)):
             return self.filter_key(criteria_ls=key_or_criteria_ls)\
                 .flatten_values(len(key_or_criteria_ls) - 1)
         else:
             return self.nested_get(key_or_criteria_ls)
+
+    def _set_multiple(self, key_or_criteria_ls, val):
+        """Check whether list has keys or criteria (i.e. if any of the criteria
+        lead to special setting functions"""
+        # TODO: Currently implementation is lazy and suboptimal,
+        #       repeatedly tests earlier keys
+        if any(map(_is_criteria, key_or_criteria_ls)):
+            selected_keys = self.filter_key(criteria_ls=key_or_criteria_ls)\
+                .flatten_keys(len(key_or_criteria_ls) - 1)
+            for key_ls in selected_keys:
+                print key_ls
+                self.nested_set(key_ls, val)
+        else:
+            self.nested_set(key_or_criteria_ls, val)
 
     @property
     def ixkeys(self):
@@ -914,8 +926,8 @@ class StructuredNestedDict(col.OrderedDict):
         Indexable
         """
         return GetSetFunctionClass(
-            get_func=self.nested_get,
-            set_func=self.nested_set,
+            get_func=self._get_multiple,
+            set_func=self._set_multiple,
         )
 
     @property
@@ -940,13 +952,13 @@ class StructuredNestedDict(col.OrderedDict):
         Indexable
         """
         return GetSetAmbiguousTupleFunctionClass(
-            get_func=self._select,
-            set_func=self.nested_set,
+            get_func=self._get_multiple,
+            set_func=self._set_multiple,
         )
 
     # ==== Other ==== #
 
-    def __str__(self):
+    def __repr__(self):
         args_string_ls = [
             dict_to_string(self),
             "levels={levels}".format(levels=self._levels),
@@ -984,6 +996,44 @@ class StructuredNestedDict(col.OrderedDict):
                     "with level={}".format(self.levels - 1))
 
         super(self.__class__, self).__setitem__(key, value)
+
+    def to_tree_string(self, indent=" - ",
+                       key_mode="str",
+                       val_mode="type"):
+        """Returns structure of NestedDict in tree format string
+
+        Parameters
+        ----------
+        indent: str
+            Indentation string for levels
+        key_mode: "type", "str" or "repr"
+            How to serialize key
+        val_mode: "type", "str" or "repr"
+            How to serialize terminal value
+
+        Returns
+        -------
+        str
+        """
+        key_str = get_str_func(key_mode)
+        val_str = get_str_func(val_mode)
+
+        def _dfs_print(dictionary, level, indent_):
+            string_ = ""
+            if level > 0:
+                indent_str = "  " * (level - 1) + "'-"
+            else:
+                indent_str = ""
+            for key, val in dictionary.iteritems():
+                if level < self.levels - 1:
+                    string_ += "{}{}:\n".format(
+                        indent_str, key_str(key))
+                    string_ += _dfs_print(val, level + 1, indent_)
+                else:
+                    string_ += "{}{}: {}\n".format(
+                        indent_str, key_str(key), val_str(val))
+            return string_
+        return _dfs_print(self, 0, indent)
 
     def get_named_tuple(self, levels):
         """Get namedtuple class for named keys

@@ -1,7 +1,8 @@
 import collections as col
 
 from utils import (
-    GetSetFunctionClass, GetSetAmbiguousTupleFunctionClass, dict_to_string
+    GetSetFunctionClass, GetSetAmbiguousTupleFunctionClass,
+    dict_to_string, get_str_func
 )
 
 
@@ -149,6 +150,26 @@ class NestedDict(col.OrderedDict):
             List of values
         """
         return list(self.iterflatten_values(max_depth=max_depth))
+
+    # ==== Dict Transformation ==== #
+
+    def map_values(self, val_func):
+        """Apply transformations to keys and values
+
+        Parameters
+        ----------
+        val_func: function
+            Function to transform values
+
+        Returns
+        -------
+        NestedDict
+        """
+        new_dict = self.__class__()
+        for key, val in self.iteritems():
+            new_dict.nested_set(key, val_func(val), dict_type="ndict")
+
+        return new_dict
 
     # ==== Setters and Getters ==== #
 
@@ -316,11 +337,49 @@ class NestedDict(col.OrderedDict):
 
     # ==== Other ==== #
 
-    def __str__(self):
+    def __repr__(self):
         return "{class_name}({data})".format(
             class_name=self.__class__.__name__,
             data=dict_to_string(self),
         )
+
+    def to_tree_string(self, indent=" - ",
+                       key_mode="str",
+                       val_mode="type"):
+        """Returns structure of NestedDict in tree format string
+
+        Parameters
+        ----------
+        indent: str
+            Indentation string for levels
+        key_mode: "type", "str" or "repr"
+            How to serialize key
+        val_mode: "type", "str" or "repr"
+            How to serialize terminal value
+
+        Returns
+        -------
+        str
+        """
+        key_str = get_str_func(key_mode)
+        val_str = get_str_func(val_mode)
+
+        def _dfs_print(dictionary, level, indent_):
+            string_ = ""
+            if level > 0:
+                indent_str = "  " * (level - 1) + "'-"
+            else:
+                indent_str = ""
+            for key, val in dictionary.iteritems():
+                if isinstance(val, dict):
+                    string_ += "{}{}:\n".format(
+                        indent_str, key_str(key))
+                    string_ += _dfs_print(val, level + 1, indent_)
+                else:
+                    string_ += "{}{}: {}\n".format(
+                        indent_str, key_str(key), val_str(val))
+            return string_
+        return _dfs_print(self, 0, indent)
 
     @staticmethod
     def _resolve_dict_type(dict_type):

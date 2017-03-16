@@ -1,7 +1,7 @@
 import collections as col
 from nose.tools import assert_raises
 
-from sndict.sndict import StructuredNestedDict, LevelError, _get_filter_func
+from sndict.structurednesteddict import StructuredNestedDict, LevelError, _get_filter_func
 from sndict.utils import list_equal, strip_spaces
 
 
@@ -38,6 +38,30 @@ dict_b = col.OrderedDict([
             ("keyX_X_2", "val2_1_2"),
         ])),
         ("keyX_1", col.OrderedDict([
+            ("keyX_X_1", "val2_2_1"),
+            ("keyX_X_2", "val2_2_2"),
+            ("keyX_X_3", "val2_2_3"),
+            ("keyX_X_4", "val2_2_4"),
+            ("keyX_X_5", "val2_2_5"),
+        ])),
+    ])),
+    ("key3", col.OrderedDict()),
+])
+
+
+dict_c = col.OrderedDict([
+    ("key1", col.OrderedDict([
+        ("keyX_1", col.OrderedDict([
+            ("keyX_X_1", "val1_1_1"),
+            ("keyX_X_2", "val1_1_2"),
+        ])),
+    ])),
+    ("key2", col.OrderedDict([
+        ("keyX_1", col.OrderedDict([
+            ("keyX_X_1", "val2_1_1"),
+            ("keyX_X_2", "val2_1_2"),
+        ])),
+        ("keyX_2", col.OrderedDict([
             ("keyX_X_1", "val2_2_1"),
             ("keyX_X_2", "val2_2_2"),
             ("keyX_X_3", "val2_2_3"),
@@ -180,6 +204,7 @@ def test_sort_values():
 
 def test_filter_key():
     sndict_a = StructuredNestedDict(dict_a, levels=3)
+    sndict_c = StructuredNestedDict(dict_c, levels=3)
     assert list_equal(
         sndict_a.filter_key(["key1"]).keys(),
         ['key1']
@@ -199,6 +224,10 @@ def test_filter_key():
     assert list_equal(
         sndict_a.filter_key({"level1": "key1_1"}).flatten_values(),
         ['val1_1_1', 'val1_1_2'],
+    )
+    assert list_equal(
+        sndict_c.filter_key({"level1": "keyX_1"}).flatten_values(),
+        ['val1_1_1', 'val1_1_2', 'val2_1_1', 'val2_1_2'],
     )
 
 
@@ -224,16 +253,24 @@ def test_nested_set_and_get():
 
 
 def test_ix():
-    sndict = StructuredNestedDict(dict_a, levels=3)
-    assert sndict.ix['key1', 'key1_1', 'key1_1_1'] == "val1_1_1"
+    sndict_a = StructuredNestedDict(dict_a, levels=3)
+    assert sndict_a.ix['key1', 'key1_1', 'key1_1_1'] == "val1_1_1"
     try:
-        _ = sndict.ix['keyX', 'keyX_1', 'keyX_1_1']
+        _ = sndict_a.ix['keyX', 'keyX_1', 'keyX_1_1']
         raise RuntimeError
     except KeyError:
         pass
 
-        sndict.ix['keyX', 'keyX_1', 'keyX_1_1'] = "valX_1_1"
-    assert sndict.ix['keyX', 'keyX_1', 'keyX_1_1'] == "valX_1_1"
+        sndict_a.ix['keyX', 'keyX_1', 'keyX_1_1'] = "valX_1_1"
+    assert sndict_a.ix['keyX', 'keyX_1', 'keyX_1_1'] == "valX_1_1"
+
+    sndict_c = StructuredNestedDict(dict_c, levels=3)
+    sndict_c.ix[:, "keyX_1", :] = "NEW"
+    assert list_equal(
+        sndict_c.flatten_values(),
+        ['NEW', 'NEW', 'NEW', 'NEW',
+         'val2_2_1', 'val2_2_2', 'val2_2_3', 'val2_2_4', 'val2_2_5'],
+    )
 
 
 def test__delitem__():
@@ -284,3 +321,11 @@ def test_str():
           "'key1_1_2':'val1_1_2',},},'key2':{'key2_1':{'key2_1_1':'val2_1_1'," \
           "'key2_1_2':'val2_1_2',},'key2_2':{'key2_2_1':'val2_2_1',},}," \
           "'key3':{},},levels=2,level_names=('a','b'))"
+
+
+def test_to_tree_string():
+    assert StructuredNestedDict(dict_a, levels=3).to_tree_string() == \
+        "key1:\n'-key1_1:\n  '-key1_1_1: <type 'str'>\n  " \
+        "'-key1_1_2: <type 'str'>\nkey2:\n'-key2_1:\n  " \
+        "'-key2_1_1: <type 'str'>\n  '-key2_1_2: <type 'str'>\n" \
+        "'-key2_2:\n  '-key2_2_1: <type 'str'>\nkey3:\n"

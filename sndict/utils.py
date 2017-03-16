@@ -214,6 +214,27 @@ def strip_spaces(string):
     return re.sub(pattern, '', string)
 
 
+def get_str_func(mode):
+    """Choose method to string-serialize an object
+
+    Parameters
+    ----------
+    mode: "type", "str" or "repr"
+        How to serialize terminal value
+
+    Returns
+    -------
+    function
+    """
+    if mode == "type":
+        return type
+    elif mode == "str":
+        return str
+    elif mode == "repr":
+        return repr
+    else:
+        raise KeyError("Unknown serialization mode")
+
 # ==== Functions ==== #
 
 def replace_none(value, default, lazy=False):

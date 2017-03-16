@@ -1,1 +1,4 @@
 *.pyc
+dict
+docs/build
+.tox
