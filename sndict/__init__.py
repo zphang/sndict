@@ -1,10 +1,7 @@
-__version__ = '0.1'
+__version__ = '0.1.1'
 
-import ndict as _ndict
-import sndict as _sndict
-
-NestedDict = ndict = _ndict.NestedDict
-StructuredNestedDict = sn_dict = _sndict.StructuredNestedDict
+from nesteddict import NestedDict, ndict
+from structurednesteddict import StructuredNestedDict, sndict
 
 __all__ = (
     'ndict', 'NestedDict',

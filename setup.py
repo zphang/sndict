@@ -20,7 +20,7 @@ test_requirements = [
 
 setup(
     name='sndict',
-    version='0.1.0',
+    version='0.1.1',
     description="Nested Extensions to Python dictionaries",
     long_description=readme + '\n\n' + history,
     author="Jason Phang",

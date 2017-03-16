@@ -1,20 +1,21 @@
-Welcome to sndict's documentation!
-======================================
+sndict Documentation
+====================
+
+
+.. include:: ../README.rst
+
 
 Contents:
+=========
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 5
 
    readme
+   ndict
+   sndict
    installation
    usage
    contributing
-   authorshistory
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   authors
+   history

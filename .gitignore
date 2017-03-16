@@ -1,1 +1,6 @@
 *.pyc
+dist
+build
+docs/build
+sndict.egg-info/
+.tox
