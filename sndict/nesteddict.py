@@ -166,7 +166,7 @@ class NestedDict(col.OrderedDict):
         NestedDict
         """
         new_dict = self.__class__()
-        for key, val in self.iteritems():
+        for key, val in self.iterflatten():
             new_dict.nested_set(key, val_func(val), dict_type="ndict")
 
         return new_dict
@@ -359,7 +359,7 @@ class NestedDict(col.OrderedDict):
 
         Returns
         -------
-        str
+            str
         """
         key_str = get_str_func(key_mode)
         val_str = get_str_func(val_mode)
