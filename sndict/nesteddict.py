@@ -1,5 +1,6 @@
 import collections as col
 
+from shared import get_filter_func
 from utils import (
     GetSetFunctionClass, GetSetAmbiguousTupleFunctionClass,
     dict_to_string, get_str_func
@@ -25,7 +26,7 @@ class NestedDict(col.OrderedDict):
 
         Parameters
         ----------
-        data: dict
+        data: dict, list
             Dictionary keyed by tuples
         dict_type: ['ndict', 'dict', 'odict']
             Dict-type in string format, for initializing dicts at depth if they
@@ -35,8 +36,16 @@ class NestedDict(col.OrderedDict):
         -------
         NestedDict
         """
+        if isinstance(data, dict):
+            iterdata = data.iteritems()
+        elif isinstance(data, list):
+            iterdata = data
+        else:
+            raise TypeError("from_flat requires a dict or list, not {}"
+                            "".format(type(data)))
+
         new_dict = cls()
-        for key_list, val in data.iteritems():
+        for key_list, val in iterdata:
             new_dict.nested_set(key_list, val, dict_type=dict_type)
         return new_dict
 
@@ -170,6 +179,55 @@ class NestedDict(col.OrderedDict):
             new_dict.nested_set(key, val_func(val), dict_type="ndict")
 
         return new_dict
+
+    def filter_values(self, criteria, filter_out=False):
+        """Filter NestedDict values by criteria.
+
+        The criteria used in the following ways, based on type:
+            1. slice(None): Keep all
+            2. function: Keep if function(key) is True
+            3. list, set: Keep if key in list/set
+            4. other: Keep if key==other
+
+        Parameters
+        ----------
+        criteria: See above
+            Filter based on criteria
+        filter_out: bool
+            Whether to filter in or out
+
+        Returns
+        -------
+        NestedDict
+        """
+        filter_func = get_filter_func(criteria, filter_out=filter_out)
+        new_dict = self.__class__()
+        for key, val in self.iterflatten():
+            if filter_func(val):
+                new_dict.nested_set(key, val, dict_type="ndict")
+
+        return new_dict
+
+    def sort_nested_keys(self, cmp=None, key=None, reverse=False):
+        """Sort keys in every nested dictionary
+
+        Parameters
+        ----------
+        cmp: function, optional
+            Comparator function
+        key: function, optional
+            Key function
+        reverse: bool, optional
+            Whether to sort in reverse
+
+        Returns
+        -------
+        NestedDict
+        """
+        return self.convert(
+            dict_type="ndict", sort_keys=True,
+            cmp=cmp, key=key, reverse=reverse,
+        )
 
     # ==== Setters and Getters ==== #
 
@@ -316,23 +374,37 @@ class NestedDict(col.OrderedDict):
 
     # ==== Conversion ==== #
 
-    def convert(self, dict_type=None):
+    def convert(self, dict_type=None,
+                sort_keys=True, cmp=None, key=None, reverse=False):
         """Convert all nested dictionaries to desired type.
 
         Parameters
         ----------
         dict_type: ['ndict', 'dict', 'odict']
             Dict-type in string format
+        sort_keys: bool
+            Whether to sort keys
+        cmp: function, optional
+            Comparator function
+        key: function, optional
+            Key function
+        reverse: bool, optional
+            Whether to sort in reverse
 
         Returns
         -------
         dict, OrderedDict or NestedDict
         """
 
+        if sort_keys:
+            iterdata = sorted(self.items(), cmp, key, reverse)
+        else:
+            iterdata = self.iteritems()
+
         return self._resolve_dict_type(dict_type)([
-            (key, NestedDict(val).convert(dict_type)
+            (key, NestedDict(val).convert(dict_type, sort_keys=sort_keys)
                 if isinstance(val, dict) else val)
-            for key, val in self.iteritems()
+            for key, val in iterdata
         ])
 
     # ==== Other ==== #

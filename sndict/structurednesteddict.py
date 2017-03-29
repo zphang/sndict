@@ -3,12 +3,13 @@ import types
 
 from nesteddict import NestedDict
 from exceptions import LevelError
+from shared import get_filter_func
 from utils import (
     GetSetFunctionClass, GetSetAmbiguousTupleFunctionClass,
     list_add, list_index, list_is_unique,
     tuple_constructor,
     dict_to_string, get_str_func,
-    replace_none, identity, negate,
+    replace_none, identity,
 )
 
 FLATTENED_LEVEL_NAME_SEPARATOR = "___"
@@ -753,8 +754,10 @@ class StructuredNestedDict(col.OrderedDict):
                 ))
             criteria_ls = new_criteria_dict.values()
 
-        filter_func_ls = [_get_filter_func(criteria, filter_out=filter_out)
-                          for criteria in criteria_ls]
+        filter_func_ls = [
+            get_filter_func(criteria, filter_out=filter_out)
+            for criteria in criteria_ls
+        ]
         return self._filter_key(self, filter_func_ls, drop_empty)
 
     @classmethod
@@ -777,10 +780,31 @@ class StructuredNestedDict(col.OrderedDict):
 
         return obj.replace_data(new_dict)
 
-    def filter_values(self, filter_func, filter_out=False,
+    def filter_values(self, criteria, filter_out=False,
                       level=None, drop_empty=False):
-        if filter_out:
-            filter_func = negate(filter_func)
+        """Filter StructuredNestedDict values by criteria.
+
+        The criteria used in the following ways, based on type:
+            1. slice(None): Keep all
+            2. function: Keep if function(key) is True
+            3. list, set: Keep if key in list/set
+            4. other: Keep if key==other
+
+        Parameters
+        ----------
+        criteria: See above
+            Filter based on criteria
+        filter_out: bool
+            Whether to filter in or out
+        drop_empty:
+            Whether to drop empty nested dictionaries (nested dictionaries
+            with all elements filtered out)
+
+        Returns
+        -------
+        StructuredNestedDict
+        """
+        filter_func = get_filter_func(criteria, filter_out=filter_out)
         level = replace_none(level, self.levels - 1)
 
         return self._filter_values(self, filter_func, level, drop_empty)
@@ -1099,23 +1123,6 @@ def _wrap_level(level, allowed_level):
                 level=level, allowed_level=allowed_level
             ))
     return wrapped_level
-
-
-def _get_filter_func(criteria, filter_out=False):
-    """Create filter function from criteria, based on type"""
-    if criteria == slice(None):
-        filter_func = lambda x: True
-    elif isinstance(criteria, types.FunctionType):
-        filter_func = criteria
-    elif isinstance(criteria, (list, set)):
-        filter_func = lambda x: x in criteria
-    else:
-        filter_func = lambda x: x == criteria
-
-    if filter_out:
-        filter_func = negate(filter_func)
-
-    return filter_func
 
 
 def _is_criteria(key_or_criteria):

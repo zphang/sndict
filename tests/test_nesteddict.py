@@ -21,7 +21,20 @@ dict_a = col.OrderedDict([
     ])),
 ])
 
+dict_data_b = [
+    (("key_b",), "val_b"),
+    (("key_a", "key_a_b"), "val_a_b"),
+    (("key_a", "key_a_a"), "val_a_a"),
+]
+
 empty_dict = col.OrderedDict()
+
+
+def test_from_flat():
+    assert list_equal(
+        NestedDict.from_flat(dict_data_b).keys(),
+        ['key_b', 'key_a'],
+    )
 
 
 def test_flatten_keys():
@@ -57,6 +70,15 @@ def test_flatten_values():
     assert list_equal(
         NestedDict(empty_dict).flatten_values(),
         list(),
+    )
+
+
+def test_filter_values():
+    assert list_equal(
+        NestedDict.from_flat(dict_data_b)
+            .filter_values(lambda _: _[-1] == "b")
+            .flatten_keys(),
+        [('key_b',), ('key_a', 'key_a_b')],
     )
 
 
@@ -102,6 +124,11 @@ def test_convert():
     assert isinstance(converted_b.values()[2].values()[0], col.OrderedDict)
 
     assert isinstance(NestedDict(empty_dict).convert(), NestedDict)
+    assert list_equal(
+        NestedDict.from_flat(dict_data_b)
+            .sort_nested_keys().flatten_keys(),
+        [('key_a', 'key_a_a'), ('key_a', 'key_a_b'), ('key_b',)],
+    )
 
 
 def test_to_tree_string():

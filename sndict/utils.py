@@ -1,4 +1,5 @@
 import collections as col
+import os
 import re
 
 
@@ -235,6 +236,7 @@ def get_str_func(mode):
     else:
         raise KeyError("Unknown serialization mode")
 
+
 # ==== Functions ==== #
 
 def replace_none(value, default, lazy=False):
@@ -293,3 +295,20 @@ def negate(func):
     def negated_func(*args, **kwargs):
         return not func(*args, **kwargs)
     return negated_func
+
+
+# ==== System ==== #
+
+def split_path(path):
+    """Split a path into tokens
+
+    Parameters
+    ----------
+    path: str
+        A system path
+
+    Returns
+    -------
+    list
+    """
+    return os.path.normpath(path).split(os.sep)

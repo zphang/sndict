@@ -1,7 +1,7 @@
 import collections as col
 from nose.tools import assert_raises
 
-from sndict.structurednesteddict import StructuredNestedDict, LevelError, _get_filter_func
+from sndict.structurednesteddict import StructuredNestedDict, LevelError
 from sndict.utils import list_equal, strip_spaces
 
 
@@ -231,15 +231,13 @@ def test_filter_key():
     )
 
 
-def test_filter_funcs():
-    assert _get_filter_func(slice(None))(False)
-    assert _get_filter_func(slice(None))(True)
-    assert _get_filter_func(lambda i: i % 2 == 0)(2)
-    assert not _get_filter_func(lambda i: i % 2 == 0)(1)
-    assert _get_filter_func([1, 2, 3])(1)
-    assert not _get_filter_func([1, 2, 3])(4)
-    assert _get_filter_func(1)(1)
-    assert not _get_filter_func(slice(None), filter_out=True)(True)
+def test_filter_values():
+    sndict_c = StructuredNestedDict(dict_c, levels=3)
+    assert list_equal(
+        sndict_c.filter_values(lambda _: _[-1] == "2")
+            .flatten_keys(named=False),
+        [('key1', 'keyX_1'), ('key2', 'keyX_1'), ('key2', 'keyX_2')],
+    )
 
 
 def test_nested_set_and_get():
