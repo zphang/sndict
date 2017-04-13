@@ -12,8 +12,10 @@ Contents:
    :maxdepth: 5
 
    readme
+   examples
    ndict
    sndict
+   app
    installation
    usage
    contributing

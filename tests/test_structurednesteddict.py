@@ -110,6 +110,7 @@ def test_flatten():
     )
     assert named_sndict_a.flatten(1).level_names == ("a___b", "c")
     assert_raises(LevelError, named_sndict_a.flatten, 3)
+    assert len(named_sndict_a.flatten_keys()) == named_sndict_a.dim[-1]
 
 
 def test_unique_keys():
@@ -164,6 +165,12 @@ def test_rearrange():
     assert named_sndict_a.rearrange(["c", "b", "a"]).level_names \
         == ("c", "b", "a")
 
+    unnamed_sndict_a = StructuredNestedDict(
+        dict_a, levels=3)
+    assert unnamed_sndict_a.rearrange([2, 1, 0]).levels == 3
+    assert unnamed_sndict_a.rearrange([2, 1, 0])\
+        .flatten_keys(2, named=False)[0] == ('key1_1_1', 'key1_1', 'key1')
+
 
 def test_swap_levels():
     named_sndict_a = StructuredNestedDict(
@@ -202,6 +209,15 @@ def test_sort_values():
     )
 
 
+def test_map_values():
+    named_sndict_a = StructuredNestedDict(
+        dict_a, levels=3, level_names=["a", "b", "c"])
+    assert list_equal(
+        named_sndict_a.map_values(str.upper).flatten_values(),
+        ['VAL1_1_1', 'VAL1_1_2', 'VAL2_1_1', 'VAL2_1_2', 'VAL2_2_1']
+    )
+
+
 def test_filter_key():
     sndict_a = StructuredNestedDict(dict_a, levels=3)
     sndict_c = StructuredNestedDict(dict_c, levels=3)
@@ -235,7 +251,7 @@ def test_filter_values():
     sndict_c = StructuredNestedDict(dict_c, levels=3)
     assert list_equal(
         sndict_c.filter_values(lambda _: _[-1] == "2")
-            .flatten_keys(named=False),
+            .flatten_keys(1, named=False),
         [('key1', 'keyX_1'), ('key2', 'keyX_1'), ('key2', 'keyX_2')],
     )
 

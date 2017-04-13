@@ -417,7 +417,7 @@ class NestedDict(col.OrderedDict):
 
     def to_tree_string(self, indent=" - ",
                        key_mode="str",
-                       val_mode="type"):
+                       val_mode="str"):
         """Returns structure of NestedDict in tree format string
 
         Parameters

@@ -1,5 +1,6 @@
 import collections as col
 import types
+import warnings
 
 from nesteddict import NestedDict
 from exceptions import LevelError
@@ -147,7 +148,7 @@ class StructuredNestedDict(col.OrderedDict):
 
     # ==== Iterators ==== #
 
-    def iterflatten(self, levels=1, named=True):
+    def iterflatten(self, levels=-1, named=True):
         """Returns an iterator with multiple levels flattened
 
         WARNING:
@@ -159,6 +160,7 @@ class StructuredNestedDict(col.OrderedDict):
         Note:
             .flatten(levels=0) does nothing,
             .flatten(levels=1) compresses 1 level (i.e. keys will be 2-ples)
+            .flatten(levels=-1) compresses all levels
 
         Parameters
         ----------
@@ -200,7 +202,7 @@ class StructuredNestedDict(col.OrderedDict):
             else:
                 yield (key,), val
 
-    def iterflatten_keys(self, levels=1, named=True):
+    def iterflatten_keys(self, levels=-1, named=True):
         """Returns an iterator with of keys of flattened dict
 
         WARNING:
@@ -212,6 +214,7 @@ class StructuredNestedDict(col.OrderedDict):
         Note:
             .flatten(levels=0) does nothing,
             .flatten(levels=1) compresses 1 level (i.e. keys will be 2-ples)
+            .flatten(levels=-1) compresses all levels
 
         Parameters
         ----------
@@ -241,6 +244,7 @@ class StructuredNestedDict(col.OrderedDict):
         Note:
             .flatten(levels=0) does nothing,
             .flatten(levels=1) compresses 1 level (i.e. keys will be 2-ples)
+            .flatten(levels=-1) compresses all levels
 
         Parameters
         ----------
@@ -256,7 +260,7 @@ class StructuredNestedDict(col.OrderedDict):
         for _, values in self.iterflatten(levels=levels, named=False):
             yield values
 
-    def flatten(self, levels=1, named=True, flattened_name=None):
+    def flatten(self, levels=-1, named=True, flattened_name=None):
         """Returns an StructuredNestedDict with multiple levels flattened
 
         WARNING:
@@ -268,6 +272,7 @@ class StructuredNestedDict(col.OrderedDict):
         Note:
             .flatten(levels=0) does nothing,
             .flatten(levels=1) compresses 1 level (i.e. keys will be 2-ples)
+            .flatten(levels=-1) compresses all levels
 
         Parameters
         ----------
@@ -300,7 +305,7 @@ class StructuredNestedDict(col.OrderedDict):
             level_names=new_level_names,
         )
 
-    def flatten_keys(self, levels=1, named=True):
+    def flatten_keys(self, levels=-1, named=True):
         """Returns an list with of keys of flattened dict
 
         WARNING:
@@ -312,6 +317,7 @@ class StructuredNestedDict(col.OrderedDict):
         Note:
             .flatten(levels=0) does nothing,
             .flatten(levels=1) compresses 1 level (i.e. keys will be 2-ples)
+            .flatten(levels=-1) compresses all levels
 
         Parameters
         ----------
@@ -340,6 +346,7 @@ class StructuredNestedDict(col.OrderedDict):
         Note:
             .flatten(levels=0) does nothing,
             .flatten(levels=1) compresses 1 level (i.e. keys will be 2-ples)
+            .flatten(levels=-1) compresses all levels
 
         Parameters
         ----------
@@ -540,7 +547,7 @@ class StructuredNestedDict(col.OrderedDict):
 
         return self.__class__(new_dict, levels=self.levels - num_levels + 1)\
             .stratify((len(level_ls)) - 1)\
-            .replace_metadata(level_names=new_level_names)
+            .replace_metadata(level_names=new_level_names, levels=self.levels)
 
     def swap_levels(self, level_a, level_b):
         """Swap two levels in a StructuredNestedDict
@@ -658,7 +665,7 @@ class StructuredNestedDict(col.OrderedDict):
             for key, val in sorted(self.items(), cmp, key, reverse)
         ])
 
-    def map(self, key_func=None, val_func=None):
+    def map(self, key_func=None, val_func=None, at_level=-1, warn=False):
         """Apply transformations to keys and values
 
         Parameters
@@ -667,53 +674,65 @@ class StructuredNestedDict(col.OrderedDict):
             Function to transform keys. Defaults to identity.
         val_func: function, optional
             Function to transform values. Defaults to identity.
+        at_level: int
+            Level to transform keys at
+        warn: bool
+            Warn if dimensions of dictionary have been changed
 
         Returns
         -------
         StructuredNestedDict
         """
+        at_level = self._wrap_level(at_level)
         key_func = replace_none(key_func, identity)
         val_func = replace_none(val_func, identity)
+        new_dict = self.replace_data({})
+        for key, val in self.iterflatten(levels=at_level, named=False):
+            new_dict.nested_set(key_func(key), val_func(val))
 
-        new_dict = self.replace_data([
-            (key_func(key), val_func(val))
-            for key, val in self.iteritems()
-        ])
-
-        # Confirm uniqueness of post key_func map
-        assert len(new_dict) == len(self)
+        assert new_dict.dim[-1] == self.dim[-1]
+        if warn and new_dict.dim != self.dim:
+            warnings.warn(
+                "Empty high-level dicts may have been dropped, "
+                "dimensions changes from {} to {}".format(
+                    new_dict.dim, self.dim,
+                ))
 
         return new_dict
 
-    def map_keys(self, key_func):
+    def map_keys(self, key_func, at_level=-1):
         """Apply transformations to keys and values
 
         Parameters
         ----------
         key_func: function
             Function to transform keys
+        at_level: int
+            Level to transform keys at
 
         Returns
         -------
         StructuredNestedDict
         """
-        return self.map(key_func=key_func)
+        return self.map(key_func=key_func, at_level=at_level)
 
-    def map_values(self, val_func):
+    def map_values(self, val_func, at_level=-1):
         """Apply transformations to keys and values
 
         Parameters
         ----------
         val_func: function
             Function to transform values
+        at_level: int
+            Level to transform values at
 
         Returns
         -------
         StructuredNestedDict
         """
-        return self.map(val_func=val_func)
+        return self.map(val_func=val_func, at_level=at_level)
 
-    # ==== Setters, Getters and Selectors ==== #
+    # ==== Getters, Setters and Selectors ==== #
 
     def filter_key(self, criteria_ls, filter_out=False, drop_empty=False):
         """Filter StructuredNestedDict by criteria.

@@ -10,7 +10,6 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = [
-    'Click>=6.0',
     # TODO: put package requirements here
 ]
 
@@ -20,7 +19,7 @@ test_requirements = [
 
 setup(
     name='sndict',
-    version='0.1.1',
+    version='0.1.2',
     description="Nested Extensions to Python dictionaries",
     long_description=readme + '\n\n' + history,
     author="Jason Phang",
