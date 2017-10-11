@@ -1,17 +1,19 @@
 import collections as col
+import six
 import types
 import warnings
 
-from nesteddict import NestedDict
-from exceptions import LevelError
-from shared import get_filter_func
-from utils import (
+from .nesteddict import NestedDict
+from .exceptions import LevelError
+from .shared import get_filter_func
+from .utils import (
     GetSetFunctionClass, GetSetAmbiguousTupleFunctionClass,
     list_add, list_index, list_is_unique,
     tuple_constructor,
     dict_to_string, get_str_func,
     replace_none, identity,
 )
+from .compat import iter_to_list
 
 FLATTENED_LEVEL_NAME_SEPARATOR = "___"
 
@@ -75,7 +77,7 @@ class StructuredNestedDict(col.OrderedDict):
         """
         new_dict = col.OrderedDict()
         if isinstance(data, dict):
-            for key, val in data.iteritems():
+            for key, val in six.iteritems(data):
                 new_dict[by(key)] = val
         else:
             for elem in data:
@@ -133,7 +135,7 @@ class StructuredNestedDict(col.OrderedDict):
         if self._level_names_is_set:
             return tuple(self._level_names)
         else:
-            return ["level{i}".format(i=i) for i in xrange(self._levels)]
+            return ["level{i}".format(i=i) for i in range(self._levels)]
 
     @property
     def dim_dict(self):
@@ -192,7 +194,7 @@ class StructuredNestedDict(col.OrderedDict):
         levels = self._wrap_level(levels)
 
         # flatten 0 = nothing, flatten 1 = 1
-        for key, val in self.iteritems():
+        for key, val in six.iteritems(self):
             # TODO: stop levels from being too deep
             if levels > 0:
                 if not isinstance(val, StructuredNestedDict):
@@ -416,13 +418,13 @@ class StructuredNestedDict(col.OrderedDict):
         StructuredNestedDict
         """
         try:
-            levels = replace_none(levels, len(self.keys()[0]))
+            levels = replace_none(levels, len(iter_to_list(self.keys())[0]))
         except IndexError:
             raise LevelError("Cannot infer stratify-levels")
 
         # stratify 0 = nothing, stratify 1 = 1
         new_dict = col.OrderedDict()
-        for key_tup, val in self.iteritems():
+        for key_tup, val in six.iteritems(self):
             stratified_keys = key_tup[:levels + 1]
             remaining_keys = key_tup[levels + 1:]
 
@@ -575,7 +577,7 @@ class StructuredNestedDict(col.OrderedDict):
         assert 0 <= level_b < self.levels
 
         required_levels = max(level_a, level_b) + 1
-        new_level_ls = range(required_levels)
+        new_level_ls = iter_to_list(range(required_levels))
         new_level_ls[level_b], new_level_ls[level_a] = \
             new_level_ls[level_a], new_level_ls[level_b]
 
@@ -633,16 +635,14 @@ class StructuredNestedDict(col.OrderedDict):
         """
         return self.replace_data([
             (key, self[key])
-            for key in sorted(self.keys(), cmp, key, reverse)
+            for key in sorted(self.keys(), key=key, reverse=reverse)
         ])
 
-    def sort_values(self, cmp=None, key=None, reverse=False):
+    def sort_values(self, key=None, reverse=False):
         """Sort values of StructuredNestedDict (top-level only)
 
         Parameters
         ----------
-        cmp: function
-            Comparator function
         key: function
             Key function
         reverse: bool
@@ -652,8 +652,6 @@ class StructuredNestedDict(col.OrderedDict):
         -------
         StructuredNestedDict
         """
-        if cmp is not None:
-            cmp = lambda a, b: cmp(a[1], b[1])
 
         if key is not None:
             key = lambda a: key(a[1])
@@ -662,7 +660,7 @@ class StructuredNestedDict(col.OrderedDict):
 
         return self.replace_data([
             (key, val)
-            for key, val in sorted(self.items(), cmp, key, reverse)
+            for key, val in sorted(self.items(), key=key, reverse=reverse)
         ])
 
     def map(self, key_func=None, val_func=None, at_level=-1, warn=False):
@@ -788,7 +786,7 @@ class StructuredNestedDict(col.OrderedDict):
         filter_func = filter_func_ls[0]
 
         new_dict = col.OrderedDict()
-        for key, val in obj.iteritems():
+        for key, val in six.iteritems(obj):
             if not filter_func(key):
                 continue
             new_val = cls._filter_key(val, filter_func_ls[1:], drop_empty)
@@ -835,12 +833,12 @@ class StructuredNestedDict(col.OrderedDict):
         if levels_remaining == 0:
             return obj.replace_data([
                 (key, val)
-                for (key, val) in obj.iteritems()
+                for (key, val) in six.iteritems(obj)
                 if filter_func(val)
             ])
         else:
             new_dict = col.OrderedDict()
-            for key, val in obj.iteritems():
+            for key, val in six.iteritems(obj):
                 new_val = cls._filter_values(val, filter_func,
                                              levels_remaining - 1, drop_empty)
                 if drop_empty and len(new_val) == 0:
@@ -945,7 +943,7 @@ class StructuredNestedDict(col.OrderedDict):
             selected_keys = self.filter_key(criteria_ls=key_or_criteria_ls)\
                 .flatten_keys(len(key_or_criteria_ls) - 1)
             for key_ls in selected_keys:
-                print key_ls
+                print(key_ls)
                 self.nested_set(key_ls, val)
         else:
             self.nested_set(key_or_criteria_ls, val)
@@ -1067,7 +1065,7 @@ class StructuredNestedDict(col.OrderedDict):
                 indent_str = "  " * (level - 1) + "'-"
             else:
                 indent_str = ""
-            for key, val in dictionary.iteritems():
+            for key, val in six.iteritems(dictionary):
                 if level < self.levels - 1:
                     string_ += "{}{}:\n".format(
                         indent_str, key_str(key))

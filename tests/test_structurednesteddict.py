@@ -1,5 +1,6 @@
 import collections as col
-from nose.tools import assert_raises
+import pytest
+import six
 
 from sndict.structurednesteddict import StructuredNestedDict, LevelError
 from sndict.utils import list_equal, strip_spaces
@@ -109,7 +110,8 @@ def test_flatten():
         [('key1', 'key1_1'), ('key2', 'key2_1'), ('key2', 'key2_2')],
     )
     assert named_sndict_a.flatten(1).level_names == ("a___b", "c")
-    assert_raises(LevelError, named_sndict_a.flatten, 3)
+    with pytest.raises(LevelError):
+        named_sndict_a.flatten(3)
     assert len(named_sndict_a.flatten_keys()) == named_sndict_a.dim[-1]
 
 
@@ -185,7 +187,8 @@ def test_replace_metadata():
 
     named_sndict_a2 = named_sndict_a.replace_metadata(levels=2)
     assert named_sndict_a2.levels == 2
-    assert_raises(LevelError, named_sndict_a2.flatten, 2)
+    with pytest.raises(LevelError):
+        named_sndict_a2.flatten(2)
 
     named_sndict_a2 = named_sndict_a.replace_metadata(
         levels=3, level_names=["A", "B", "C"])
@@ -338,8 +341,10 @@ def test_str():
 
 
 def test_to_tree_string():
-    assert StructuredNestedDict(dict_a, levels=3).to_tree_string() == \
-        "key1:\n'-key1_1:\n  '-key1_1_1: <type 'str'>\n  " \
+    s = "key1:\n'-key1_1:\n  '-key1_1_1: <type 'str'>\n  " \
         "'-key1_1_2: <type 'str'>\nkey2:\n'-key2_1:\n  " \
         "'-key2_1_1: <type 'str'>\n  '-key2_1_2: <type 'str'>\n" \
         "'-key2_2:\n  '-key2_2_1: <type 'str'>\nkey3:\n"
+    if six.PY3:
+        s = s.replace("type", "class")
+    assert StructuredNestedDict(dict_a, levels=3).to_tree_string() == s

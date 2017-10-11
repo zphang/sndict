@@ -115,13 +115,15 @@ def test_ix():
 def test_convert():
     converted_b = NestedDict(dict_a).convert()
     assert isinstance(converted_b, NestedDict)
-    assert isinstance(converted_b.values()[1], NestedDict)
-    assert isinstance(converted_b.values()[2].values()[0], NestedDict)
+    assert isinstance(list(converted_b.values())[1], NestedDict)
+    assert isinstance(list(list(converted_b.values())[2].values())[0],
+                      NestedDict)
 
     converted_b = NestedDict(dict_a).convert("odict")
     assert isinstance(converted_b, col.OrderedDict)
-    assert isinstance(converted_b.values()[1], col.OrderedDict)
-    assert isinstance(converted_b.values()[2].values()[0], col.OrderedDict)
+    assert isinstance(list(converted_b.values())[1], col.OrderedDict)
+    assert isinstance(list(list(converted_b.values())[2].values())[0],
+                      col.OrderedDict)
 
     assert isinstance(NestedDict(empty_dict).convert(), NestedDict)
     assert list_equal(

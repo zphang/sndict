@@ -1,8 +1,8 @@
 import os
 
-from utils import split_path
-from nesteddict import NestedDict
-from structurednesteddict import StructuredNestedDict
+from .utils import split_path
+from .nesteddict import NestedDict
+from .structurednesteddict import StructuredNestedDict
 
 
 def directory_tree(base_path):

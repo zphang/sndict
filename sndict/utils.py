@@ -1,6 +1,7 @@
 import collections as col
 import os
 import re
+import six
 
 
 # ==== Property Classes ==== #
@@ -162,7 +163,7 @@ def dict_to_string(dictionary, indent=4):
         return "{}"
     indentation = " " * indent
     string = "{\n"
-    for key, val in dictionary.iteritems():
+    for key, val in six.iteritems(dictionary):
         if isinstance(val, dict):
             if len(val) == 0:
                 string += "{}{}: {{}}".format(indentation, repr(key))

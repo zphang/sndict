@@ -1,6 +1,6 @@
 import types
 
-from utils import negate
+from .utils import negate
 
 
 def get_filter_func(criteria, filter_out=False):
