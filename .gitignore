@@ -4,3 +4,5 @@ build
 docs/build
 sndict.egg-info/
 .tox
+.DS_Store
+.cache

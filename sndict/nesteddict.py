@@ -1,7 +1,8 @@
 import collections as col
+import six
 
-from shared import get_filter_func
-from utils import (
+from .shared import get_filter_func
+from .utils import (
     GetSetFunctionClass, GetSetAmbiguousTupleFunctionClass,
     dict_to_string, get_str_func
 )
@@ -37,7 +38,7 @@ class NestedDict(col.OrderedDict):
         NestedDict
         """
         if isinstance(data, dict):
-            iterdata = data.iteritems()
+            iterdata = six.iteritems(data)
         elif isinstance(data, list):
             iterdata = data
         else:
@@ -71,7 +72,7 @@ class NestedDict(col.OrderedDict):
     def _iterflatten(cls, dictionary, max_depth=None, depth=1):
         """DFS method for flattening a NestedDict"""
         assert depth > 0
-        for key, val in dictionary.iteritems():
+        for key, val in six.iteritems(dictionary):
             if isinstance(val, dict) \
                     and (max_depth is None or depth < max_depth):
                 for partial_key_tup, sub_val in NestedDict._iterflatten(
@@ -208,13 +209,11 @@ class NestedDict(col.OrderedDict):
 
         return new_dict
 
-    def sort_nested_keys(self, cmp=None, key=None, reverse=False):
+    def sort_nested_keys(self, key=None, reverse=False):
         """Sort keys in every nested dictionary
 
         Parameters
         ----------
-        cmp: function, optional
-            Comparator function
         key: function, optional
             Key function
         reverse: bool, optional
@@ -226,7 +225,7 @@ class NestedDict(col.OrderedDict):
         """
         return self.convert(
             dict_type="ndict", sort_keys=True,
-            cmp=cmp, key=key, reverse=reverse,
+            key=key, reverse=reverse,
         )
 
     # ==== Setters and Getters ==== #
@@ -375,7 +374,7 @@ class NestedDict(col.OrderedDict):
     # ==== Conversion ==== #
 
     def convert(self, dict_type=None,
-                sort_keys=True, cmp=None, key=None, reverse=False):
+                sort_keys=True, key=None, reverse=False):
         """Convert all nested dictionaries to desired type.
 
         Parameters
@@ -384,8 +383,6 @@ class NestedDict(col.OrderedDict):
             Dict-type in string format
         sort_keys: bool
             Whether to sort keys
-        cmp: function, optional
-            Comparator function
         key: function, optional
             Key function
         reverse: bool, optional
@@ -397,9 +394,9 @@ class NestedDict(col.OrderedDict):
         """
 
         if sort_keys:
-            iterdata = sorted(self.items(), cmp, key, reverse)
+            iterdata = sorted(self.items(), key=key, reverse=reverse)
         else:
-            iterdata = self.iteritems()
+            iterdata = six.iteritems(self)
 
         return self._resolve_dict_type(dict_type)([
             (key, NestedDict(val).convert(dict_type, sort_keys=sort_keys)
@@ -442,7 +439,7 @@ class NestedDict(col.OrderedDict):
                 indent_str = "  " * (level - 1) + "'-"
             else:
                 indent_str = ""
-            for key, val in dictionary.iteritems():
+            for key, val in six.iteritems(dictionary):
                 if isinstance(val, dict):
                     string_ += "{}{}:\n".format(
                         indent_str, key_str(key))
