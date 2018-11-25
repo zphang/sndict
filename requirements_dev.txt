@@ -9,4 +9,4 @@ Sphinx==1.8.2
 cryptography==2.4.1
 PyYAML==3.13
 six==1.11.0
-pytest==3.10.1
+pytest==4.0.1
